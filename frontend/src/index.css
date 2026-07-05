@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  body {
+    @apply m-0 bg-slate-100 font-sans text-slate-800 antialiased;
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    @apply focus:outline-none;
+  }
+}
+
+@layer components {
+  .form-control {
+    @apply w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm shadow-slate-200/30 placeholder:text-slate-400 transition-all duration-200 focus:border-primary-500 focus:bg-white focus:ring-4 focus:ring-primary-100/70 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500;
+  }
+}

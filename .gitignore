@@ -1,0 +1,17 @@
+# Backend (Java/Eclipse/Maven)
+backend/cms/target/
+backend/cms/.classpath
+backend/cms/.project
+backend/cms/.settings/
+*.class
+
+# Frontend (Node/React)
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/tmp-*/
+frontend/.env
+
+# General
+.DS_Store
+*.log
