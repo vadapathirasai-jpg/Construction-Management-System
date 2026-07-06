@@ -29,9 +29,11 @@ public class MaterialController {
         return materialService.getMaterialById(id);
     }
 
-    @PutMapping
-    public Material updateMaterial(@RequestBody Material material) {
-        return materialService.updateMaterial(material);
+    @PutMapping("/{id}")
+    public Material updateMaterial(@PathVariable String id,@RequestBody Material material){
+
+        return materialService.updateMaterial(id, material);
+
     }
 
     @DeleteMapping("/{id}")

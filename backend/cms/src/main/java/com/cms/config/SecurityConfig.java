@@ -40,7 +40,7 @@ public class SecurityConfig {
                 
                 // Projects
                 .requestMatchers(HttpMethod.GET, "/projects/**").authenticated()
-                .requestMatchers(HttpMethod.DELETE, "/projects/**").hasAuthority("Admin")
+                .requestMatchers(HttpMethod.DELETE, "/projects/**").hasAuthority("ADMIN")
                 .requestMatchers("/projects/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
                 
                 // Workers
@@ -53,12 +53,12 @@ public class SecurityConfig {
                 
                 // Expenses
                 .requestMatchers(HttpMethod.GET, "/expenses/**").authenticated()
-                .requestMatchers(HttpMethod.DELETE, "/expenses/**").hasAuthority("Admin")
+                .requestMatchers(HttpMethod.DELETE, "/expenses/**").hasAuthority("ADMIN")
                 .requestMatchers("/expenses/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER", "ACCOUNTANT")
                 
                 // Daily Reports
                 .requestMatchers(HttpMethod.GET, "/daily-reports/**").authenticated()
-                .requestMatchers("/daily-reports/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER", "Site Engineer")
+                .requestMatchers("/daily-reports/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER", "SITE ENGINEER")
                 
                 .anyRequest().authenticated()
             )

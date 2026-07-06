@@ -1,6 +1,7 @@
 package com.cms.service;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,7 @@ public class ProjectService {
     private ProjectRepository projectRepository;
 
     public Project saveProject(Project project) {
+    	project.setId(generateProjectId());
         normalizeCompletedProject(project);
         return projectRepository.save(project);
     }
@@ -26,11 +28,11 @@ public class ProjectService {
     }
 
     public Project getProjectById(String id) {
-        return projectRepository.findById(id).orElse(null);
+        return projectRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not exit"));
     }
 
     public Project updateProject(String id, Project newProject) {
-        Project prev = projectRepository.findById(id).orElseThrow(() -> new RuntimeException("Project Not found"));
+        Project prev = projectRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project Not found"));
         
         prev.setName(newProject.getName());
         prev.setClient(newProject.getClient());
@@ -60,5 +62,12 @@ public class ProjectService {
             project.setProgress(100);
             project.setStage("Completed");
         }
+    }
+    private String generateProjectId() {
+    	String id;
+    	do {
+    		id = "PRJ-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    	}while(projectRepository.existsById(id));
+    	return id;
     }
 }

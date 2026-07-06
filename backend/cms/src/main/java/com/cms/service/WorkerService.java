@@ -1,6 +1,7 @@
 package com.cms.service;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ public class WorkerService {
     private WorkerRepository workerRepository;
 
     public Worker saveWorker(Worker worker) {
+    	worker.setId(generateWorkerId());
         return workerRepository.save(worker);
     }
 
@@ -26,11 +28,35 @@ public class WorkerService {
         return workerRepository.findById(id).orElse(null);
     }
 
-    public Worker updateWorker(Worker worker) {
+    public Worker updateWorker(String id, Worker newWorker) {
+
+        Worker worker = workerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Worker not found"));
+
+        worker.setName(newWorker.getName());
+        worker.setRole(newWorker.getRole());
+        worker.setPhone(newWorker.getPhone());
+        worker.setWage(newWorker.getWage());
+        worker.setProject(newWorker.getProject());
+        worker.setStatus(newWorker.getStatus());
+
         return workerRepository.save(worker);
     }
 
     public void deleteWorker(String id) {
         workerRepository.deleteById(id);
+    }
+    private String generateWorkerId() {
+        String id;
+
+        do {
+            id = "WRK-" + UUID.randomUUID()
+                             .toString()
+                             .substring(0, 8)
+                             .toUpperCase();
+
+        } while (workerRepository.existsById(id));
+
+        return id;
     }
 }

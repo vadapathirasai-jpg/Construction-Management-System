@@ -31,10 +31,11 @@ public class WorkerController {
         return workerService.getWorkerById(id);
     }
 
-    @PutMapping
-    public Worker updateWorker(@RequestBody Worker worker) {
-        return workerService.updateWorker(worker);
+    @PutMapping("/{id}")
+    public Worker updateWorker(@PathVariable String id,@RequestBody Worker worker) {
+        return workerService.updateWorker(id, worker);
     }
+  
 
     @DeleteMapping("/{id}")
     public void deleteWorker(@PathVariable String id) {
