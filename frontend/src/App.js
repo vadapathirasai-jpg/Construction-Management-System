@@ -9,6 +9,7 @@ import Progress from "./pages/Progress";
 import ProjectDetail from "./pages/ProjectDetail";
 import DailyReports from "./pages/DailyReports";
 import { Reports, Users } from "./pages/Administration";
+import Verify from "./pages/Verify";
 import { useAppData } from "./context/AppData";
 
 function Authorized({ permission, children }) {
@@ -21,6 +22,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify" element={<Verify />} />
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />

@@ -17,12 +17,12 @@ public class EmailService {
     @Value("${app.verification.base-url}")
     private String baseUrl;
 
-    public void sendVerificationEmail(String toEmail, String userName, String token) throws MessagingException {
+    public void sendVerificationEmail(String toEmail, String userName, String token) throws MessagingException, java.io.UnsupportedEncodingException  {
         String verificationUrl = baseUrl + "?token=" + token;
 
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
+        helper.setFrom("24csb47@karpagamtech.ac.in", "BuildTrack");  
         helper.setTo(toEmail);
         helper.setSubject("Verify Your BuildTrack Account");
 

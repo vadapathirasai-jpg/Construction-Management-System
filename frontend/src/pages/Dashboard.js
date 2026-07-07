@@ -149,7 +149,7 @@ export default function Dashboard() {
       {error && <Card className="mb-4 border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">{error}</Card>}
       {loading && <Card className="mb-6"><LoadingState /></Card>}
 
-      <Card className="relative mb-6 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-white shadow-xl shadow-slate-950/20">
+      <section className="relative mb-6 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-white shadow-xl shadow-slate-950/20">
         <div className={`absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b ${presentation.accent}`} />
         <div className={`absolute -right-16 -top-24 h-72 w-72 rounded-full blur-3xl ${presentation.glow}`} />
         <div className="absolute inset-0 opacity-[0.05] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:32px_32px]" />
@@ -181,7 +181,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </Card>
+      </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {(metricsByRole[role] || metricsByRole.Admin).map(([label, value, detail, icon, tone]) => (
