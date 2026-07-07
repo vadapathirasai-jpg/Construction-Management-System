@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
 const AppDataContext = createContext(null);
-const API_BASE = "http://localhost:8080";
+const API_BASE = "http://localhost:8081";
 
 export function AppDataProvider({ children }) {
   const [projects, setProjects] = useState([]);
@@ -146,8 +146,7 @@ export function AppDataProvider({ children }) {
   };
 
   const update = async (type, record) => {
-    const isProjectUpdate = type === "projects";
-    const url = isProjectUpdate ? `${API_BASE}/${type}/${record.id}` : `${API_BASE}/${type}`;
+    const url = `${API_BASE}/${type}/${record.id}`;
     const nextRecord = normalizeRecord(type, record);
     
     try {

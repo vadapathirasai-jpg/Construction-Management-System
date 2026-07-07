@@ -1,20 +1,21 @@
 export function Button({ children, variant = "primary", className = "", ...props }) {
   const styles = {
-    primary: "border-primary-700 bg-primary-700 text-white hover:bg-primary-800 hover:shadow-button active:scale-[0.98]",
-    secondary: "border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 active:scale-[0.98]",
-    danger: "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 active:scale-[0.98]",
+    primary: "bg-gradient-to-r from-primary-700 to-cyan-600 border-none text-white hover:opacity-95 hover:shadow-button hover:-translate-y-0.5 active:scale-[0.97]",
+    secondary: "border-slate-200/80 bg-white text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:-translate-y-0.5 active:scale-[0.98]",
+    danger: "border-rose-100 bg-rose-50/50 text-rose-700 hover:bg-rose-50 hover:border-rose-200 hover:-translate-y-0.5 active:scale-[0.98]",
     ghost: "border-transparent bg-transparent text-slate-600 hover:bg-slate-100 active:scale-[0.98]",
+    dark: "border-white/10 bg-slate-900 text-white hover:bg-slate-800 hover:border-white/20 hover:-translate-y-0.5 active:scale-[0.98]",
   };
 
   return (
-    <button className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`} {...props}>
+    <button className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`} {...props}>
       {children}
     </button>
   );
 }
 
 export function Card({ children, className = "" }) {
-  return <section className={`rounded-lg border border-slate-200/80 bg-white shadow-card transition-all duration-300 hover:border-slate-300/80 hover:shadow-cardHover ${className}`}>{children}</section>;
+  return <section className={`rounded-xl border border-slate-200/40 bg-white shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-cardHover hover:border-slate-300/60 ${className}`}>{children}</section>;
 }
 
 export function Badge({ children, tone = "blue" }) {
@@ -25,7 +26,19 @@ export function Badge({ children, tone = "blue" }) {
     red: "border-rose-100 bg-rose-50 text-rose-700",
     gray: "border-slate-200 bg-slate-50 text-slate-600",
   };
-  return <span className={`inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold ${tones[tone]}`}>{children}</span>;
+  const dots = {
+    blue: "bg-sky-500",
+    green: "bg-emerald-500",
+    amber: "bg-amber-500",
+    red: "bg-rose-500",
+    gray: "bg-slate-400",
+  };
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-bold ${tones[tone]}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dots[tone]}`} />
+      {children}
+    </span>
+  );
 }
 
 export function StatusBadge({ status }) {
@@ -42,8 +55,8 @@ export function ProgressBar({ value, compact = false }) {
   const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
   return (
     <div className="flex w-full items-center gap-3">
-      <div className={`w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200/70 ${compact ? "h-2" : "h-3"}`}>
-        <div className="h-full rounded-full bg-primary-600 transition-all duration-500 ease-out" style={{ width: `${safeValue}%` }} />
+      <div className={`w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200/40 ${compact ? "h-2" : "h-3"}`}>
+        <div className="h-full rounded-full bg-gradient-to-r from-primary-600 to-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.35)] transition-all duration-500 ease-out" style={{ width: `${safeValue}%` }} />
       </div>
       <span className="w-10 text-right text-xs font-bold text-slate-700">{safeValue}%</span>
     </div>
@@ -54,7 +67,7 @@ export function Table({ columns, children, sort, onSort }) {
   return (
     <div className="overflow-x-auto rounded-b-lg">
       <table className="w-full min-w-[760px] text-left text-sm">
-        <thead className="border-y border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+        <thead className="border-y border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-600">
           <tr>{columns.map((column) => {
             const item = typeof column === "string" ? { label: column } : column;
             const active = Boolean(item.key && sort?.key === item.key);
@@ -75,7 +88,7 @@ export function PageHeader({ title, description, action }) {
     <div className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 className="text-2xl font-extrabold text-slate-950 sm:text-3xl">{title}</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-500">{description}</p>
+        <p className="mt-1 max-w-2xl text-sm font-medium text-slate-600">{description}</p>
       </div>
       {action}
     </div>
@@ -98,7 +111,7 @@ export function SelectFilter({ value, onChange, options, label = "All" }) {
 }
 
 export function EmptyState({ message = "No records match the current filters." }) {
-  return <div className="px-5 py-14 text-center"><div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 text-slate-500"><Icon name="search" className="h-5 w-5" /></div><p className="text-sm font-semibold text-slate-700">{message}</p><p className="mt-1 text-xs text-slate-400">Try changing your search or filters.</p></div>;
+  return <div className="px-5 py-14 text-center"><div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 text-slate-500"><Icon name="search" className="h-5 w-5" /></div><p className="text-sm font-semibold text-slate-800">{message}</p><p className="mt-1 text-xs font-medium text-slate-500">Try changing your search or filters.</p></div>;
 }
 
 export function LoadingState() {
@@ -117,6 +130,24 @@ export function Modal({ title, description, children, onClose, footer }) {
 
 export function Field({ label, error, children }) {
   return <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">{label}</span>{children}{error && <span className="mt-1 block text-xs text-rose-600">{error}</span>}</label>;
+}
+
+export function Switch({ checked, onChange, disabled = false }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${checked ? "bg-primary-600" : "bg-slate-200"}`}
+    >
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? "translate-x-5" : "translate-x-0"}`}
+      />
+    </button>
+  );
 }
 
 export function Icon({ name, className = "h-5 w-5" }) {

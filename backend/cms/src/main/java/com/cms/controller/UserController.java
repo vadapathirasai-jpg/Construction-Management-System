@@ -72,6 +72,12 @@ public class UserController {
         }
     }
 
+    @GetMapping("/verify")
+    public ResponseEntity<String> verifyUser(@RequestParam String token) {
+        String result = userService.verifyUser(token);
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping
     public List<User> getAllUsers() {
         return userService.getAllUsers();
@@ -82,8 +88,9 @@ public class UserController {
         return userService.getUserById(id);
     }
 
-    @PutMapping
-    public User updateUser(@RequestBody User user) {
+    @PutMapping("/{id}")
+    public User updateUser(@PathVariable String id, @RequestBody User user) {
+        user.setId(id);
         return userService.updateUser(user);
     }
 

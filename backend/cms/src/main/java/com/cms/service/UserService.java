@@ -2,9 +2,12 @@ package com.cms.service;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import com.cms.entity.User;
 import com.cms.repository.UserRepository;
@@ -17,6 +20,9 @@ public class UserService {
 
     @Autowired
     private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private EmailService emailService;
 
     public User saveUser(User user) {
     	//check name not empty
@@ -40,7 +46,7 @@ public class UserService {
         //cleaning all values to make it uniform
         user.setName(user.getName().trim());
         user.setEmail(user.getEmail().trim().toLowerCase());
-        user.setRole(user.getRole().trim().toUpperCase());
+        normalizeUserRole(user);
         
         //Default status
         if (user.getStatus() == null || user.getStatus().trim().isEmpty()) {
@@ -57,8 +63,21 @@ public class UserService {
         //encode the password
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         
+        // Generate and set verification token/expiry
+        String token = UUID.randomUUID().toString();
+        user.setVerificationToken(token);
+        user.setTokenExpiry(LocalDateTime.now().plusHours(24));
         
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        
+        // Asynchronously/safely call email service so it doesn't fail registration
+        try {
+            emailService.sendVerificationEmail(savedUser.getEmail(), savedUser.getName(), token);
+        } catch (Exception ex) {
+            System.err.println("Failed to send verification email for " + savedUser.getEmail() + ": " + ex.getMessage());
+        }
+        
+        return savedUser;
     }
 
     public List<User> getAllUsers() {
@@ -95,11 +114,45 @@ public class UserService {
         }
         
         
+        normalizeUserRole(user);
         return userRepository.save(user);
     }
 
     public void deleteUser(String id) {
         userRepository.deleteById(id);
+    }
+
+    private void normalizeUserRole(User user) {
+        if (user.getRole() != null) {
+            String rawRole = user.getRole().trim();
+            if ("ADMIN".equalsIgnoreCase(rawRole)) {
+                user.setRole("Admin");
+            } else if ("PROJECT MANAGER".equalsIgnoreCase(rawRole) || "PROJECT_MANAGER".equalsIgnoreCase(rawRole)) {
+                user.setRole("Project Manager");
+            } else if ("SITE ENGINEER".equalsIgnoreCase(rawRole) || "SITE_ENGINEER".equalsIgnoreCase(rawRole)) {
+                user.setRole("Site Engineer");
+            } else if ("ACCOUNTANT".equalsIgnoreCase(rawRole)) {
+                user.setRole("Accountant");
+            } else {
+                user.setRole(rawRole);
+            }
+        }
+    }
+
+    public String verifyUser(String token) {
+        User user = userRepository.findByVerificationToken(token)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification link."));
+
+        if (user.getTokenExpiry() == null || user.getTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Verification link has expired.");
+        }
+
+        user.setStatus("Active");
+        user.setVerificationToken(null);
+        user.setTokenExpiry(null);
+        userRepository.save(user);
+
+        return "Account verified successfully. You can now login.";
     }
 
     private String generateUserId() {

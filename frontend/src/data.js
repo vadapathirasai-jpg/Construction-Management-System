@@ -1,6 +1,6 @@
 export const workerRoles = ["Labourer", "Mason", "Electrician", "Plumber", "Carpenter", "Site Engineer", "Supervisor", "Machine Operator", "Painter"];
 
-export const roleOptions = ["Admin", "Project Manager", "Site Engineer", "Accountant"];
+export const roleOptions = ["ADMIN", "PROJECT MANAGER", "SITE ENGINEER", "ACCOUNTANT"];
 
 export const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
 

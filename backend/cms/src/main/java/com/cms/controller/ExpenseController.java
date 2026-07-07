@@ -29,8 +29,9 @@ public class ExpenseController {
         return expenseService.getExpenseById(id);
     }
 
-    @PutMapping
-    public Expense updateExpense(@RequestBody Expense expense) {
+    @PutMapping("/{id}")
+    public Expense updateExpense(@PathVariable String id, @RequestBody Expense expense) {
+        expense.setId(id);
         return expenseService.updateExpense(expense);
     }
 

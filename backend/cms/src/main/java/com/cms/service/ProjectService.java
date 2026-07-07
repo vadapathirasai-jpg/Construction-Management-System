@@ -58,7 +58,8 @@ public class ProjectService {
     }
 
     private void normalizeCompletedProject(Project project) {
-        if ("Completed".equals(project.getStatus())) {
+        if ("Completed".equals(project.getStatus()) || project.getProgress() == 100) {
+            project.setStatus("Completed");
             project.setProgress(100);
             project.setStage("Completed");
         }
