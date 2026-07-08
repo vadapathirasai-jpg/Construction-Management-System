@@ -13,10 +13,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const demoAccounts = [
-    { role: "Admin", email: "admin@buildtrack.com", password: "admin123", color: "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100" },
-    { role: "Project Manager", email: "manager@buildtrack.com", password: "manager123", color: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" },
-    { role: "Site Engineer", email: "engineer@buildtrack.com", password: "engineer123", color: "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100" },
-    { role: "Accountant", email: "accountant@buildtrack.com", password: "accountant123", color: "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100" },
+    { role: "Admin", email: "admin@buildtrack.com", password: "admin123", color: "border-blueprint-navy/30 bg-blueprint-navy/5 text-blueprint-navy hover:bg-blueprint-navy/10" },
+    { role: "Project Manager", email: "manager@buildtrack.com", password: "manager123", color: "border-safety-orange/30 bg-safety-orange/5 text-safety-orange hover:bg-safety-orange/10" },
+    { role: "Site Engineer", email: "engineer@buildtrack.com", password: "engineer123", color: "border-safety-yellow/40 bg-safety-yellow/5 text-blueprint-navy hover:bg-safety-yellow/15" },
+    { role: "Accountant", email: "accountant@buildtrack.com", password: "accountant123", color: "border-concrete-gray/30 bg-concrete-gray/5 text-concrete-gray hover:bg-concrete-gray/10" },
   ];
 
   const handleDemoClick = (acc) => {
@@ -42,51 +42,61 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-950 font-sans">
-      <div className="relative hidden w-5/12 flex-col justify-between overflow-hidden border-r border-slate-800 bg-slate-950 p-12 text-white lg:flex">
-        <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "linear-gradient(rgba(148,163,184,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,.16) 1px, transparent 1px)", backgroundSize: "44px 44px" }} />
+    <div className="flex min-h-screen bg-[#F7F5F0] font-sans">
+      {/* Left Blueprint Graphic Panel */}
+      <div className="relative hidden w-5/12 flex-col justify-between overflow-hidden border-r border-blueprint-navy/20 bg-blueprint-navy p-12 text-white lg:flex">
+        <div className="absolute inset-0 opacity-[0.04] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:24px_24px]" />
+        
         <div className="z-10 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary-600 text-white shadow-lg shadow-primary-900/30">
+          <span className="flex h-10 w-10 items-center justify-center rounded-none bg-safety-orange text-white shadow-md">
             <Icon name="building" className="h-5 w-5" />
           </span>
-          <span className="text-xl font-bold text-white">BuildTrack</span>
+          <span className="text-xl font-bold font-industry uppercase tracking-widest text-white">BuildTrack</span>
         </div>
 
         <div className="z-10 max-w-md">
-          <p className="mb-3 text-xs font-bold uppercase text-primary-300">Construction Operations Hub</p>
-          <h1 className="text-4xl font-extrabold leading-tight text-white">
-            Keep every project, team, and cost on track.
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-safety-orange font-industry">CONSTRUCTION OPERATIONS HUB</p>
+          <h1 className="text-4xl font-extrabold leading-tight text-white font-industry uppercase tracking-wide">
+            Keep every project, crew, and cost on track.
           </h1>
-          <p className="mt-5 text-base leading-relaxed text-slate-400">
-            A secure enterprise workspace designed to streamline project schedules, track material logs, manage site workforces, and audit operational budgets.
+          <p className="mt-5 text-sm leading-relaxed text-slate-300">
+            A secure site ERP designed to coordinate project sequencing, track material metrics, manage site workforce registries, and audit operational ledger books.
           </p>
           <div className="mt-8 grid grid-cols-3 gap-3">
-            {["Projects", "Workers", "Costs"].map((item) => <div key={item} className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-300">{item}</div>)}
+            {["PROJECTS", "WORKFORCE", "LEDGER"].map((item) => (
+              <div key={item} className="rounded-none border border-white/10 bg-white/5 px-3 py-2 text-center text-[10px] font-bold font-industry uppercase tracking-wider text-slate-200">
+                {item}
+              </div>
+            ))}
           </div>
         </div>
 
-        <p className="z-10 text-xs text-slate-500">(c) 2026 BuildTrack ERP Systems</p>
+        <p className="z-10 text-[10px] text-[#8E9AA6] uppercase font-industry tracking-wider">© 2026 BuildTrack ERP Systems</p>
       </div>
 
+      {/* Right Login Console Panel */}
       <div className="relative z-10 flex flex-1 items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-md rounded-lg border border-slate-800 bg-slate-950/90 p-8 shadow-2xl shadow-black/50 transition-all duration-300 hover:border-slate-700 sm:p-10">
-          <div className="mb-8 lg:hidden">
-            <div className="flex items-center gap-3 text-white">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary-600 text-white">
+        {/* Subtle grid background on right as well */}
+        <div className="absolute inset-0 grid-paper opacity-[0.4] pointer-events-none" />
+
+        <div className="w-full max-w-md crop-panel bg-white p-8 shadow-lg transition-all duration-300 hover:border-blueprint-navy/30 sm:p-10">
+          <div className="mb-6 lg:hidden">
+            <div className="flex items-center gap-3 text-blueprint-navy">
+              <span className="flex h-9 w-9 items-center justify-center rounded-none bg-safety-orange text-white shadow-sm">
                 <Icon name="building" className="h-4 w-4" />
               </span>
-              <span className="text-lg font-bold">BuildTrack</span>
+              <span className="text-lg font-bold font-industry uppercase tracking-widest">BuildTrack</span>
             </div>
           </div>
 
-          <h2 className="text-2xl font-extrabold text-white">Sign In</h2>
-          <p className="mt-2 text-sm text-slate-400">Access your role-based operations dashboard.</p>
+          <h2 className="text-2xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">SECURE ENTRY</h2>
+          <p className="mt-1 text-xs font-medium text-blueprint-navy/60 uppercase tracking-wide">Access your site operations dashboard.</p>
 
-          <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
+          <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-300">Email address</label>
+              <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Email Address</label>
               <input
-                className="w-full rounded-md border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-all duration-200 focus:border-primary-500 focus:bg-slate-900 focus:ring-4 focus:ring-primary-900/40"
+                className="form-control"
                 type="email"
                 placeholder="you@buildtrack.com"
                 value={email}
@@ -96,9 +106,9 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-300">Password</label>
+              <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Password</label>
               <input
-                className="w-full rounded-md border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-all duration-200 focus:border-primary-500 focus:bg-slate-900 focus:ring-4 focus:ring-primary-900/40"
+                className="form-control"
                 type="password"
                 placeholder="Password"
                 value={password}
@@ -108,42 +118,43 @@ export default function Login() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 rounded-md border border-red-950 bg-red-950/30 px-4 py-3 text-xs font-medium text-red-400">
-                <Icon name="warning" className="h-4 w-4" />
-                <span>{error}</span>
+              <div className="flex items-center gap-2 rounded-none border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700">
+                <Icon name="warning" className="h-4 w-4 shrink-0" />
+                <span>{error.toUpperCase()}</span>
               </div>
             )}
 
             <Button
               type="submit"
-              className="w-full rounded-md border-none bg-primary-600 py-3 font-bold text-white shadow-lg shadow-primary-900/20 transition-all duration-150 hover:bg-primary-500 active:scale-[0.99]"
+              className="w-full rounded-none py-3"
               disabled={loading}
             >
               {loading ? "Authenticating..." : "Login to dashboard"}
             </Button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-slate-400">
-            New to BuildTrack? <Link className="font-semibold text-primary-300 hover:text-primary-200" to="/register">Register</Link>
+          <p className="mt-5 text-center text-xs font-bold uppercase tracking-wider font-industry text-blueprint-navy/60">
+            New to BuildTrack? <Link className="text-safety-orange hover:text-[#d96b14] underline" to="/register">Register pass</Link>
           </p>
 
-          <div className="mt-8 border-t border-slate-800 pt-6">
-            <p className="mb-3 text-xs font-bold uppercase text-slate-400">Quick Login (Demo Roles)</p>
+          {/* Quick Login Section */}
+          <div className="mt-8 border-t border-blueprint-navy/15 pt-6">
+            <p className="mb-3 text-[10px] font-extrabold uppercase tracking-widest text-[#8E9AA6] font-industry">QUICK LOGIN (DEMO ROLES)</p>
             <div className="grid grid-cols-2 gap-2">
               {demoAccounts.map((acc) => (
                 <button
                   key={acc.role}
                   type="button"
                   onClick={() => handleDemoClick(acc)}
-                  className={`flex flex-col items-start rounded-md border p-2.5 text-left transition-all duration-200 ${acc.color} active:scale-[0.97]`}
+                  className={`flex flex-col items-start rounded-none border p-2.5 text-left transition-all duration-200 ${acc.color} active:scale-[0.97]`}
                 >
-                  <span className="text-xs font-bold">{acc.role}</span>
-                  <span className="mt-1 w-full truncate text-[10px] opacity-80">{acc.email}</span>
+                  <span className="text-[10px] font-bold font-industry uppercase tracking-wider">{acc.role}</span>
+                  <span className="mt-1 w-full truncate text-[9px] font-mono opacity-80">{acc.email}</span>
                 </button>
               ))}
             </div>
-            <p className="mt-4 text-center text-[10px] text-slate-500">
-              Role-based APIs and JWT authorization are enforced.
+            <p className="mt-4 text-center text-[9px] font-bold font-industry uppercase tracking-wider text-blueprint-navy/40">
+              Role-based APIs and JWT access controls active.
             </p>
           </div>
         </div>

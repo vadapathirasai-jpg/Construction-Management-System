@@ -43,80 +43,137 @@ export default function Register() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-950 font-sans">
-      <div className="relative hidden w-5/12 flex-col justify-between overflow-hidden border-r border-slate-800 bg-slate-950 p-12 text-white lg:flex">
-        <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "linear-gradient(rgba(148,163,184,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,.16) 1px, transparent 1px)", backgroundSize: "44px 44px" }} />
+    <div className="flex min-h-screen bg-[#F7F5F0] font-sans">
+      {/* Left Blueprint Graphic Panel */}
+      <div className="relative hidden w-5/12 flex-col justify-between overflow-hidden border-r border-blueprint-navy/20 bg-blueprint-navy p-12 text-white lg:flex">
+        <div className="absolute inset-0 opacity-[0.04] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:24px_24px]" />
+        
         <div className="z-10 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary-600 text-white shadow-lg shadow-primary-900/30">
+          <span className="flex h-10 w-10 items-center justify-center rounded-none bg-safety-orange text-white shadow-md">
             <Icon name="building" className="h-5 w-5" />
           </span>
-          <span className="text-xl font-bold text-white">BuildTrack</span>
+          <span className="text-xl font-bold font-industry uppercase tracking-widest text-white">BuildTrack</span>
         </div>
+
         <div className="z-10 max-w-md">
-          <p className="mb-3 text-xs font-bold uppercase text-primary-300">Construction Operations Hub</p>
-          <h1 className="text-4xl font-extrabold leading-tight text-white">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-safety-orange font-industry">CONSTRUCTION OPERATIONS HUB</p>
+          <h1 className="text-4xl font-extrabold leading-tight text-white font-industry uppercase tracking-wide">
             Create access for your project workspace.
           </h1>
-          <p className="mt-5 text-base leading-relaxed text-slate-400">
-            Register a role-based account to manage project schedules, site teams, material logs, and operating costs.
+          <p className="mt-5 text-sm leading-relaxed text-slate-300">
+            Register a role-based operator file to log daily progress checklists, audit material assets, dispatch teams, and inspect budgets.
           </p>
           <div className="mt-8 grid grid-cols-3 gap-3">
-            {["Projects", "Sites", "Reports"].map((item) => <div key={item} className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-300">{item}</div>)}
+            {["PROJECTS", "WORKFORCE", "LEDGER"].map((item) => (
+              <div key={item} className="rounded-none border border-white/10 bg-white/5 px-3 py-2 text-center text-[10px] font-bold font-industry uppercase tracking-wider text-slate-200">
+                {item}
+              </div>
+            ))}
           </div>
         </div>
-        <p className="z-10 text-xs text-slate-500">(c) 2026 BuildTrack ERP Systems</p>
+
+        <p className="z-10 text-[10px] text-[#8E9AA6] uppercase font-industry tracking-wider">© 2026 BuildTrack ERP Systems</p>
       </div>
 
+      {/* Right Register Console Panel */}
       <div className="relative z-10 flex flex-1 items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-md rounded-lg border border-slate-800 bg-slate-950/90 p-8 shadow-2xl shadow-black/50 transition-all duration-300 hover:border-slate-700 sm:p-10">
-          <div className="mb-8 lg:hidden">
-            <div className="flex items-center gap-3 text-white">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary-600 text-white">
+        <div className="absolute inset-0 grid-paper opacity-[0.4] pointer-events-none" />
+
+        <div className="w-full max-w-md crop-panel bg-white p-8 shadow-lg transition-all duration-300 hover:border-blueprint-navy/30 sm:p-10">
+          <div className="mb-6 lg:hidden">
+            <div className="flex items-center gap-3 text-blueprint-navy">
+              <span className="flex h-9 w-9 items-center justify-center rounded-none bg-safety-orange text-white shadow-sm">
                 <Icon name="building" className="h-4 w-4" />
               </span>
-              <span className="text-lg font-bold">BuildTrack</span>
+              <span className="text-lg font-bold font-industry uppercase tracking-widest">BuildTrack</span>
             </div>
           </div>
 
-          <h2 className="text-2xl font-extrabold text-white">Register</h2>
-          <p className="mt-2 text-sm text-slate-400">Create your role-based operations account.</p>
+          <h2 className="text-2xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">REGISTER CREW PASS</h2>
+          <p className="mt-1 text-xs font-medium text-blueprint-navy/60 uppercase tracking-wide">Create your role-based operations account.</p>
 
           <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-300">Full name</label>
-              <input className="w-full rounded-md border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-all duration-200 focus:border-primary-500 focus:bg-slate-900 focus:ring-4 focus:ring-primary-900/40" value={form.name} onChange={(e) => updateField("name", e.target.value)} required />
+              <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Full Name</label>
+              <input
+                className="form-control"
+                placeholder="Full Name"
+                value={form.name}
+                onChange={(e) => updateField("name", e.target.value)}
+                required
+              />
             </div>
+
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-300">Email address</label>
-              <input className="w-full rounded-md border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-all duration-200 focus:border-primary-500 focus:bg-slate-900 focus:ring-4 focus:ring-primary-900/40" type="email" placeholder="you@buildtrack.com" value={form.email} onChange={(e) => updateField("email", e.target.value)} required />
+              <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Email Address</label>
+              <input
+                className="form-control"
+                type="email"
+                placeholder="you@buildtrack.com"
+                value={form.email}
+                onChange={(e) => updateField("email", e.target.value)}
+                required
+              />
             </div>
+
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-300">Role</label>
-              <select className="w-full rounded-md border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-white transition-all duration-200 focus:border-primary-500 focus:bg-slate-900 focus:ring-4 focus:ring-primary-900/40" value={form.role} onChange={(e) => updateField("role", e.target.value)} required>
-                <option value="">Select role</option>
-                {roleOptions.map((role) => <option key={role}>{role}</option>)}
+              <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Role</label>
+              <select
+                className="form-control"
+                value={form.role}
+                onChange={(e) => updateField("role", e.target.value)}
+                required
+              >
+                <option value="">Select Role</option>
+                {roleOptions.map((role) => (
+                  <option key={role} value={role.split(" ").map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(" ")}>
+                    {role}
+                  </option>
+                ))}
               </select>
             </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-300">Password</label>
-                <input className="w-full rounded-md border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-all duration-200 focus:border-primary-500 focus:bg-slate-900 focus:ring-4 focus:ring-primary-900/40" type="password" value={form.password} onChange={(e) => updateField("password", e.target.value)} required />
+                <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Password</label>
+                <input
+                  className="form-control"
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => updateField("password", e.target.value)}
+                  required
+                />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-300">Confirm</label>
-                <input className="w-full rounded-md border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-all duration-200 focus:border-primary-500 focus:bg-slate-900 focus:ring-4 focus:ring-primary-900/40" type="password" value={form.confirmPassword} onChange={(e) => updateField("confirmPassword", e.target.value)} required />
+                <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Confirm</label>
+                <input
+                  className="form-control"
+                  type="password"
+                  value={form.confirmPassword}
+                  onChange={(e) => updateField("confirmPassword", e.target.value)}
+                  required
+                />
               </div>
             </div>
 
-            {error && <div className="flex items-center gap-2 rounded-md border border-red-950 bg-red-950/30 px-4 py-3 text-xs font-medium text-red-400"><Icon name="warning" className="h-4 w-4" />{error}</div>}
+            {error && (
+              <div className="flex items-center gap-2 rounded-none border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700">
+                <Icon name="warning" className="h-4 w-4 shrink-0" />
+                <span>{error.toUpperCase()}</span>
+              </div>
+            )}
 
-            <Button type="submit" className="w-full rounded-md border-none bg-primary-600 py-3 font-bold text-white shadow-lg shadow-primary-900/20 transition-all duration-150 hover:bg-primary-500 active:scale-[0.99]" disabled={loading}>
-              {loading ? "Creating account..." : "Create account"}
+            <Button
+              type="submit"
+              className="w-full rounded-none py-3 animate-pulse"
+              disabled={loading}
+            >
+              {loading ? "Creating Pass..." : "Submit Registration Pass"}
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
-            Already registered? <Link className="font-semibold text-primary-300 hover:text-primary-200" to="/login">Sign in</Link>
+          <p className="mt-5 text-center text-xs font-bold uppercase tracking-wider font-industry text-blueprint-navy/60">
+            Already registered? <Link className="text-safety-orange hover:text-[#d96b14] underline" to="/login">Sign in</Link>
           </p>
         </div>
       </div>

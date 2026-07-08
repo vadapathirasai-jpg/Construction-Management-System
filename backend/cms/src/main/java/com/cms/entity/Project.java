@@ -17,7 +17,11 @@ public class Project {
     private String client;
     private String location;
     private BigDecimal budget;
-    private String manager;
+    
+    @ManyToOne
+    @JoinColumn(name = "manager_id")
+    private User manager;
+    
     private LocalDate start;
     private LocalDate end;
     private String status;
@@ -28,7 +32,7 @@ public class Project {
     	
     }
     
-	public Project(String id, String name, String client, String location, BigDecimal budget, String manager,
+	public Project(String id, String name, String client, String location, BigDecimal budget, User manager,
 			LocalDate start, LocalDate end, String status, int progress, String stage) {
 		super();
 		this.id = id;
@@ -73,10 +77,10 @@ public class Project {
 	public void setBudget(BigDecimal budget) {
 		this.budget = budget;
 	}
-	public String getManager() {
+	public User getManager() {
 		return manager;
 	}
-	public void setManager(String manager) {
+	public void setManager(User manager) {
 		this.manager = manager;
 	}
 	public LocalDate getStart() {

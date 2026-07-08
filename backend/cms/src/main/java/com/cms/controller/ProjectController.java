@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import com.cms.entity.Project;
+import com.cms.entity.User;
 import com.cms.service.ProjectService;
 
 @RestController
@@ -25,6 +26,11 @@ public class ProjectController {
     @GetMapping
     public List<Project> getAllProjects() {
         return projectService.getAllProjects();
+    }
+    
+    @GetMapping("/managers")
+    public List<User> getAvailableProjectManagers() {
+        return projectService.getAvailableProjectManagers();
     }
 
     @GetMapping("/{id}")

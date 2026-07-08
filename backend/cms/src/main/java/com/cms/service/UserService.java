@@ -126,13 +126,13 @@ public class UserService {
         if (user.getRole() != null) {
             String rawRole = user.getRole().trim();
             if ("ADMIN".equalsIgnoreCase(rawRole)) {
-                user.setRole("Admin");
+                user.setRole("ADMIN");
             } else if ("PROJECT MANAGER".equalsIgnoreCase(rawRole) || "PROJECT_MANAGER".equalsIgnoreCase(rawRole)) {
-                user.setRole("Project Manager");
+                user.setRole("PROJECT MANAGER");
             } else if ("SITE ENGINEER".equalsIgnoreCase(rawRole) || "SITE_ENGINEER".equalsIgnoreCase(rawRole)) {
-                user.setRole("Site Engineer");
+                user.setRole("SITE ENGINEER");
             } else if ("ACCOUNTANT".equalsIgnoreCase(rawRole)) {
-                user.setRole("Accountant");
+                user.setRole("ACCOUNTANT");
             } else {
                 user.setRole(rawRole);
             }

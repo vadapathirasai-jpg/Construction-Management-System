@@ -49,37 +49,37 @@ export default function Verify() {
   }, [token]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 font-sans sm:p-10">
-      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "linear-gradient(rgba(148,163,184,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,.16) 1px, transparent 1px)", backgroundSize: "44px 44px" }} />
+    <div className="flex min-h-screen items-center justify-center bg-[#F7F5F0] p-6 sm:p-10 font-sans relative">
+      <div className="absolute inset-0 grid-paper opacity-[0.4] pointer-events-none" />
 
-      <div className="relative z-10 w-full max-w-md rounded-lg border border-slate-800 bg-slate-950/90 p-8 shadow-2xl shadow-black/50 transition-all duration-300 hover:border-slate-700 sm:p-10">
-        <div className="mb-8 flex items-center justify-center gap-3 text-white">
-          <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary-600 text-white shadow-lg shadow-primary-900/30">
+      <div className="relative z-10 w-full max-w-md crop-panel bg-white p-8 shadow-lg transition-all duration-300 hover:border-blueprint-navy/35 sm:p-10">
+        <div className="mb-6 flex items-center justify-center gap-3 text-blueprint-navy">
+          <span className="flex h-10 w-10 items-center justify-center rounded-none bg-safety-orange text-white shadow-md">
             <Icon name="building" className="h-5 w-5" />
           </span>
-          <span className="text-xl font-bold">BuildTrack</span>
+          <span className="text-xl font-bold font-industry uppercase tracking-widest">BuildTrack</span>
         </div>
 
         {status === "loading" && (
           <div className="py-6 text-center">
             <div className="mb-5 flex justify-center">
-              <span className="h-9 w-9 animate-spin rounded-full border-2 border-slate-800 border-t-primary-500" />
+              <span className="h-8 w-8 animate-spin border-2 border-blueprint-navy/20 border-t-safety-orange" />
             </div>
-            <h2 className="text-2xl font-extrabold text-white">Verifying Account</h2>
-            <p className="mt-2 text-sm text-slate-400">Verifying your account...</p>
+            <h2 className="text-xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">Verifying Account</h2>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-blueprint-navy/60">Verifying credential signatures...</p>
           </div>
         )}
 
         {status === "success" && (
           <div className="py-4 text-center">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center border border-emerald-200 bg-emerald-50 text-emerald-600">
               <Icon name="check" className="h-7 w-7" />
             </div>
-            <h2 className="text-2xl font-extrabold text-white">Account Verified</h2>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">{message}</p>
+            <h2 className="text-xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">Account Verified</h2>
+            <p className="mt-2 text-xs font-medium text-blueprint-navy/70 leading-relaxed uppercase">{message}</p>
             <div className="mt-8">
               <Button
-                className="w-full rounded-md border-none bg-primary-600 py-3 font-bold text-white shadow-lg shadow-primary-900/20 transition-all duration-150 hover:bg-primary-500 active:scale-[0.99]"
+                className="w-full rounded-none py-3"
                 onClick={() => navigate("/login")}
               >
                 Go to Login
@@ -90,22 +90,22 @@ export default function Verify() {
 
         {status === "error" && (
           <div className="py-4 text-center">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-red-950 bg-red-950/30 text-red-400">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center border border-red-200 bg-red-50 text-red-600">
               <Icon name="warning" className="h-7 w-7" />
             </div>
-            <h2 className="text-2xl font-extrabold text-white">Verification Failed</h2>
-            <div className="mt-4 flex items-center justify-center gap-2 rounded-md border border-red-950 bg-red-950/30 px-4 py-3 text-xs font-medium text-red-400">
+            <h2 className="text-xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">Verification Failed</h2>
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-none border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700 uppercase">
               <Icon name="warning" className="h-4 w-4 shrink-0" />
               <span>{message}</span>
             </div>
             <div className="mt-8 flex flex-col gap-3">
               <Button
-                className="w-full rounded-md border-none bg-primary-600 py-3 font-bold text-white shadow-lg shadow-primary-900/20 transition-all duration-150 hover:bg-primary-500 active:scale-[0.99]"
+                className="w-full rounded-none py-3"
                 onClick={() => navigate("/login")}
               >
                 Go to Login
               </Button>
-              <Link to="/register" className="text-xs font-semibold text-primary-300 transition-colors hover:text-primary-200">
+              <Link to="/register" className="text-xs font-bold uppercase tracking-wider font-industry text-safety-orange hover:text-[#d96b14] underline">
                 Need a new account? Register here
               </Link>
             </div>

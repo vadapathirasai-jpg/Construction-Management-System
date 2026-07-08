@@ -9,16 +9,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.cms.entity.Project;
+import com.cms.entity.User;
 import com.cms.repository.ProjectRepository;
+import com.cms.repository.UserRepository;
 
 @Service
 public class ProjectService {
 
     @Autowired
     private ProjectRepository projectRepository;
+    
+    @Autowired
+    private UserRepository userRepository;
 
     public Project saveProject(Project project) {
     	project.setId(generateProjectId());
+        project.setManager(validateProjectManager(project.getManager()));
         normalizeCompletedProject(project);
         return projectRepository.save(project);
     }
@@ -38,7 +44,9 @@ public class ProjectService {
         prev.setClient(newProject.getClient());
         prev.setLocation(newProject.getLocation());
         prev.setBudget(newProject.getBudget());
-        prev.setManager(newProject.getManager());
+        if (newProject.getManager() != null) {
+            prev.setManager(validateProjectManager(newProject.getManager()));
+        }
         prev.setStart(newProject.getStart());
         prev.setEnd(newProject.getEnd());
         prev.setStatus(newProject.getStatus());
@@ -47,6 +55,10 @@ public class ProjectService {
         normalizeCompletedProject(prev);
         
         return projectRepository.save(prev);
+    }
+    
+    public List<User> getAvailableProjectManagers() {
+        return userRepository.findByRole("PROJECT MANAGER");
     }
 
     public void deleteProject(String id) {
@@ -64,6 +76,22 @@ public class ProjectService {
             project.setStage("Completed");
         }
     }
+    
+    private User validateProjectManager(User assignedManager) {
+        if (assignedManager == null || assignedManager.getId() == null || assignedManager.getId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned manager not found.");
+        }
+        
+        User user = userRepository.findById(assignedManager.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned manager not found."));
+        
+        if (!"PROJECT MANAGER".equals(user.getRole())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned user is not a Project Manager.");
+        }
+        
+        return user;
+    }
+    
     private String generateProjectId() {
     	String id;
     	do {
