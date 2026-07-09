@@ -4,6 +4,7 @@ import { Badge, Button, Card, EmptyState, Icon, LoadingState, ProgressBar, Statu
 import { useAppData } from "../context/AppData";
 import { formatCurrency, formatDate } from "../data";
 import ProjectAssignmentPanel from "../components/ProjectAssignmentPanel";
+import GanttChart from "../components/GanttChart";
 
 const rolePresentation = {
   Admin: {
@@ -40,167 +41,7 @@ const rolePresentation = {
   },
 };
 
-function SiteOverviewTimeline({ projects, navigate }) {
-  const activeProjects = projects.filter((p) => p.status === "Active");
-  
-  if (!activeProjects.length) {
-    return (
-      <Card className="p-6 mb-6 bg-white">
-        <h2 className="text-sm font-extrabold font-industry tracking-widest text-blueprint-navy uppercase mb-4">SITE SCHEDULING TIMELINE</h2>
-        <EmptyState message="No active projects on site schedule." />
-      </Card>
-    );
-  }
 
-  // Parse dates and find bounds
-  const projectData = activeProjects.map((p) => {
-    const start = new Date(p.start + "T00:00:00");
-    const end = new Date(p.end + "T00:00:00");
-    return {
-      ...p,
-      startDate: isNaN(start.getTime()) ? new Date() : start,
-      endDate: isNaN(end.getTime()) ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) : end,
-    };
-  });
-
-  const startTimes = projectData.map((p) => p.startDate.getTime());
-  const endTimes = projectData.map((p) => p.endDate.getTime());
-  
-  // Overall bounds
-  const earliestTime = Math.min(...startTimes);
-  const latestTime = Math.max(...endTimes);
-  
-  // Padding dates slightly (10 days on sides)
-  const earliestDate = new Date(earliestTime - 10 * 24 * 60 * 60 * 1000);
-  const latestDate = new Date(latestTime + 10 * 24 * 60 * 60 * 1000);
-  const chartDuration = latestDate.getTime() - earliestDate.getTime();
-
-  // Generate ticks for monthly columns
-  const months = [];
-  let current = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
-  const endMonth = new Date(latestDate.getFullYear(), latestDate.getMonth(), 1);
-  while (current <= endMonth) {
-    months.push(new Date(current));
-    current.setMonth(current.getMonth() + 1);
-  }
-
-  const today = new Date();
-  const todayLeft = ((today.getTime() - earliestDate.getTime()) / chartDuration) * 100;
-  const showToday = today >= earliestDate && today <= latestDate;
-
-  return (
-    <Card className="p-5 mb-6 overflow-hidden bg-white">
-      <div className="flex items-center justify-between border-b border-blueprint-navy/15 pb-3.5 mb-4">
-        <div>
-          <h2 className="text-sm font-extrabold font-industry tracking-widest text-blueprint-navy uppercase leading-none">SITE OVERVIEW TIMELINE</h2>
-          <p className="text-[10px] font-bold text-[#8E9AA6] uppercase tracking-wider font-industry mt-1">Gantt scheduling & active sequence progress</p>
-        </div>
-        <button onClick={() => navigate("/progress")} className="text-xs font-bold font-industry uppercase tracking-wider text-safety-orange hover:text-[#d96b14]">
-          Full Progress Ledger →
-        </button>
-      </div>
-
-      <div className="overflow-x-auto">
-        <div className="min-w-[800px] relative pb-2 pt-4">
-          
-          {/* Timeline Grid Columns Header */}
-          <div className="flex border-b border-blueprint-navy/15 pb-2 mb-2 ml-48 text-[9px] font-bold text-blueprint-navy/50 font-mono tracking-widest uppercase relative h-6">
-            {months.map((m, idx) => {
-              const leftPercent = ((m.getTime() - earliestDate.getTime()) / chartDuration) * 100;
-              return (
-                <div 
-                  key={idx} 
-                  className="absolute border-l border-blueprint-navy/10 pl-1.5 h-4"
-                  style={{ left: `${Math.max(0, Math.min(100, leftPercent))}%` }}
-                >
-                  {m.toLocaleDateString("en-IN", { month: "short", year: "2-digit" })}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Today Indicator Line */}
-          {showToday && (
-            <div 
-              className="absolute top-0 bottom-0 w-[2px] bg-safety-orange border-l border-r border-white/60 z-20 pointer-events-none"
-              style={{ left: `${todayLeft}%` }}
-              title="TODAY"
-            >
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-safety-orange text-white text-[7px] font-bold px-1 py-0.5 rounded-none font-mono">TODAY</span>
-            </div>
-          )}
-
-          {/* Project Gantt Strips */}
-          <div className="space-y-4 pt-4">
-            {projectData.map((project) => {
-              const left = ((project.startDate.getTime() - earliestDate.getTime()) / chartDuration) * 100;
-              const width = ((project.endDate.getTime() - project.startDate.getTime()) / chartDuration) * 100;
-              const progress = Number(project.progress || 0);
-
-              return (
-                <div key={project.id} className="flex items-center">
-                  
-                  {/* Left Project Info Panel */}
-                  <button 
-                    onClick={() => navigate(`/projects/${project.id}`)}
-                    className="w-44 pr-4 text-left group shrink-0"
-                  >
-                    <p className="text-xs font-bold text-blueprint-navy uppercase tracking-wider group-hover:text-safety-orange truncate leading-tight">
-                      {project.name}
-                    </p>
-                    <p className="text-[9px] font-bold text-[#8E9AA6] uppercase tracking-widest mt-0.5">
-                      {(project.manager?.name || (typeof project.manager === "string" ? project.manager : "Unassigned")).split(" ")[0]} · {project.stage || "FIELD"}
-                    </p>
-                  </button>
-
-                  {/* Right Timeline Bar Area */}
-                  <div className="flex-1 bg-blueprint-navy/[0.02] border-y border-blueprint-navy/[0.05] h-9 relative flex items-center">
-                    
-                    {/* Month Vertical Grid lines */}
-                    {months.map((m, idx) => {
-                      const gridLeft = ((m.getTime() - earliestDate.getTime()) / chartDuration) * 100;
-                      return (
-                        <div 
-                          key={idx} 
-                          className="absolute top-0 bottom-0 w-[1px] bg-blueprint-navy/5 pointer-events-none"
-                          style={{ left: `${gridLeft}%` }}
-                        />
-                      );
-                    })}
-
-                    {/* Gantt Bar Strip */}
-                    <div 
-                      className="absolute h-6 bg-blueprint-navy text-white text-[9px] font-bold border border-blueprint-navy flex items-center overflow-hidden"
-                      style={{ left: `${Math.max(0, Math.min(100, left))}%`, width: `${Math.max(2, Math.min(100 - left, width))}%` }}
-                    >
-                      {/* Grid background inside bar */}
-                      <div className="absolute inset-0 grid-paper opacity-10 pointer-events-none" />
-                      
-                      {/* Progress Filled Area */}
-                      <div 
-                        className="h-full bg-safety-orange border-r border-blueprint-navy/40 transition-all duration-500"
-                        style={{ width: `${progress}%` }}
-                      />
-
-                      {/* Floating Text Label */}
-                      <span className="absolute inset-y-0 left-2 right-2 flex items-center justify-between pointer-events-none z-10 font-mono text-[8px] tracking-wide text-white mix-blend-difference">
-                        <span>{project.start.slice(5)}</span>
-                        <span>{progress}%</span>
-                        <span>{project.end.slice(5)}</span>
-                      </span>
-                    </div>
-
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-        </div>
-      </div>
-    </Card>
-  );
-}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -337,7 +178,7 @@ export default function Dashboard() {
 
       {/* Gantt Timeline Site Overview Hero */}
       {!loading && (
-        <SiteOverviewTimeline projects={projects} navigate={navigate} />
+        <GanttChart />
       )}
 
       {/* Role desk details */}

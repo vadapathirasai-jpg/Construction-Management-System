@@ -181,8 +181,25 @@ function PageShell({ type, columns, renderRow, extraFilters, summary }) {
   const actions = (record) => {
     const canDelete = type === "projects"
       ? data.currentUser.role === "Admin" && record.status === "Completed"
-      : data.can("delete");
-    return { onView: () => type === "projects" ? navigate(`/projects/${record.id}`) : openModal({ mode: "view", record }), onEdit: () => openModal({ mode: "edit", record }), onDelete: () => { if (window.confirm(`Delete ${record.name || record.description}?`)) data.remove(type, record.id); }, onApprove: type === "expenses" && record.approval === "Pending" && ["Admin", "Project Manager"].includes(data.currentUser.role) ? () => data.update("expenses", { ...record, approval: "Approved" }) : null, canManage, canDelete };
+      : type === "expenses"
+        ? data.currentUser.role === "Admin"
+        : data.can("delete") || data.currentUser.role === "Project Manager";
+
+    return {
+      onView: () => type === "projects" ? navigate(`/projects/${record.id}`) : openModal({ mode: "view", record }),
+      onEdit: () => openModal({ mode: "edit", record }),
+      onDelete: async () => {
+        if (window.confirm(`Delete ${record.name || record.description}?`)) {
+          const result = await data.remove(type, record.id);
+          if (result && result.success === false) {
+            alert(result.error || `Failed to delete ${type.slice(0, -1)}.`);
+          }
+        }
+      },
+      onApprove: type === "expenses" && record.approval === "Pending" && ["Admin", "Project Manager"].includes(data.currentUser.role) ? () => data.update("expenses", { ...record, approval: "Approved" }) : null,
+      canManage,
+      canDelete
+    };
   };
   return <><PageHeader title={config.title} description={description} action={canManage && <Button onClick={() => setModal({ mode: "add", record: null })}><Icon name="plus" className="h-4 w-4" />Add {config.title.slice(0, -1)}</Button>} />
     {data.error && <Card className="mb-4 border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">{data.error}</Card>}

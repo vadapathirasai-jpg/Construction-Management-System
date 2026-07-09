@@ -233,11 +233,20 @@ export function AppDataProvider({ children }) {
       });
       if (response.ok) {
         await fetchData();
+        setError("");
+        return { success: true };
       } else {
-        console.error(`Failed to delete ${type} with id ${id}`);
+        const message = await response.text().catch(() => "");
+        const errorMessage = message || `Failed to delete ${type}.`;
+        console.error(errorMessage);
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
       }
     } catch (err) {
       console.error(`Error deleting ${type}:`, err);
+      const errorMessage = `Could not delete ${type}. Please check the backend connection.`;
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 

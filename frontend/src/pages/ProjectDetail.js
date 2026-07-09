@@ -7,7 +7,7 @@ import { formatCurrency, formatDate, workerRoles } from "../data";
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { accessibleProjects, workers, materials, expenses, dailyReports, can, loading, error, update } = useAppData();
+  const { accessibleProjects, workers, materials, expenses, dailyReports, can, loading, error, update, currentUser } = useAppData();
   const [editing, setEditing] = useState(false);
   const [updating, setUpdating] = useState(false);
 
@@ -83,19 +83,25 @@ export default function ProjectDetail() {
             <StatusBadge status={project.status} />
           </div>
           <dl className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              ["Client", project.client],
-              ["Location", project.location],
-              ["Project Manager", project.manager?.name || project.manager || "Unassigned"],
-              ["Budget", formatCurrency(project.budget)],
-              ["Spent", formatCurrency(spent)],
-              ["Expected Completion", formatDate(project.end)],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <dt className="text-xs text-slate-400">{label}</dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-800">{value}</dd>
-              </div>
-            ))}
+            {(() => {
+              const detailItems = [
+                ["Client", project.client],
+                ["Location", project.location],
+                ["Project Manager", project.manager?.name || project.manager || "Unassigned"],
+              ];
+              if (currentUser?.role !== "Site Engineer") {
+                detailItems.push(["Budget", formatCurrency(project.budget)]);
+                detailItems.push(["Spent", formatCurrency(spent)]);
+              }
+              detailItems.push(["Expected Completion", formatDate(project.end)]);
+
+              return detailItems.map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-xs text-slate-400">{label}</dt>
+                  <dd className="mt-1 text-sm font-semibold text-slate-800">{value}</dd>
+                </div>
+              ));
+            })()}
           </dl>
           <div className="mt-6 border-t border-slate-100 pt-5">
             <p className="mb-2 text-sm font-medium">Overall Progress</p>
@@ -127,7 +133,7 @@ export default function ProjectDetail() {
         </Card>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-3">
+      <div className={`mt-5 grid gap-5 lg:grid-cols-${currentUser?.role === "Site Engineer" ? 2 : 3}`}>
         <Card className="p-5">
           <h2 className="font-semibold">Materials and Usage</h2>
           {latest && (
@@ -152,23 +158,25 @@ export default function ProjectDetail() {
         </Card>
 
         {/* Expenses & Approvals Ledger */}
-        <Card className="p-5">
-          <h2 className="font-semibold">Expenses & Breakdown</h2>
-          <div className="mt-4 max-h-[220px] overflow-y-auto space-y-2">
-            {projectExpenses.length ? projectExpenses.map((expense) => (
-              <div key={expense.id} className="flex items-center justify-between border-b border-slate-100 py-2 text-xs">
-                <div>
-                  <p className="font-bold text-slate-800 uppercase">{expense.description}</p>
-                  <p className="mt-0.5 font-mono text-slate-400">{formatDate(expense.date)} · {expense.category}</p>
+        {currentUser?.role !== "Site Engineer" && (
+          <Card className="p-5">
+            <h2 className="font-semibold">Expenses & Breakdown</h2>
+            <div className="mt-4 max-h-[220px] overflow-y-auto space-y-2">
+              {projectExpenses.length ? projectExpenses.map((expense) => (
+                <div key={expense.id} className="flex items-center justify-between border-b border-slate-100 py-2 text-xs">
+                  <div>
+                    <p className="font-bold text-slate-800 uppercase">{expense.description}</p>
+                    <p className="mt-0.5 font-mono text-slate-400">{formatDate(expense.date)} · {expense.category}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold font-mono text-slate-800">{formatCurrency(expense.amount)}</span>
+                    <StatusBadge status={expense.approval} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-bold font-mono text-slate-800">{formatCurrency(expense.amount)}</span>
-                  <StatusBadge status={expense.approval} />
-                </div>
-              </div>
-            )) : <p className="text-sm text-slate-500">No expenses recorded for this project.</p>}
-          </div>
-        </Card>
+              )) : <p className="text-sm text-slate-500">No expenses recorded for this project.</p>}
+            </div>
+          </Card>
+        )}
 
         {/* Assigned Workers List */}
         <Card className="p-5">

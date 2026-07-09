@@ -4,7 +4,11 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.GrantedAuthority;
 
+import com.cms.dto.ProjectGanttSummary;
 import com.cms.entity.Project;
 import com.cms.entity.User;
 import com.cms.service.ProjectService;
@@ -46,5 +50,18 @@ public class ProjectController {
     @DeleteMapping("/{id}")
     public void deleteProject(@PathVariable String id) {
         projectService.deleteProject(id);
+    }
+
+    @GetMapping("/gantt-summary")
+    public List<ProjectGanttSummary> getGanttSummary() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String role = "";
+        if (auth != null) {
+            role = auth.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .findFirst()
+                    .orElse("");
+        }
+        return projectService.getGanttSummaries(role);
     }
 }

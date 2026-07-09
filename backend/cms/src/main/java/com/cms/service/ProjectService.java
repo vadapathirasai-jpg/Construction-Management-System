@@ -1,17 +1,27 @@
 package com.cms.service;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.cms.dto.ProjectGanttSummary;
 import com.cms.entity.Project;
 import com.cms.entity.User;
+import com.cms.entity.Expense;
+import com.cms.entity.Material;
+import com.cms.entity.DailyReport;
 import com.cms.repository.ProjectRepository;
 import com.cms.repository.UserRepository;
+import com.cms.repository.ExpenseRepository;
+import com.cms.repository.MaterialRepository;
+import com.cms.repository.DailyReportRepository;
 
 @Service
 public class ProjectService {
@@ -21,6 +31,15 @@ public class ProjectService {
     
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private ExpenseRepository expenseRepository;
+
+    @Autowired
+    private MaterialRepository materialRepository;
+
+    @Autowired
+    private DailyReportRepository dailyReportRepository;
 
     public Project saveProject(Project project) {
     	project.setId(generateProjectId());
@@ -98,5 +117,86 @@ public class ProjectService {
     		id = "PRJ-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     	}while(projectRepository.existsById(id));
     	return id;
+    }
+
+    public List<ProjectGanttSummary> getGanttSummaries(String role) {
+        List<Project> allProjects = projectRepository.findAll();
+        List<ProjectGanttSummary> summaries = new ArrayList<>();
+
+        for (Project project : allProjects) {
+            List<DailyReport> reports = dailyReportRepository.findByProjectId(project.getId());
+            DailyReport latestReport = reports.stream()
+                    .max(Comparator.comparing(DailyReport::getDate))
+                    .orElse(null);
+
+            Integer reportedProgress = project.getProgress();
+            String progressSource = "Project Profile";
+            if (latestReport != null) {
+                reportedProgress = latestReport.getProgress();
+                progressSource = "Daily Report (" + latestReport.getDate() + ")";
+            }
+
+            List<Expense> expenses = expenseRepository.findByProjectId(project.getId());
+            double spentVal = expenses.stream()
+                    .filter(e -> "Approved".equalsIgnoreCase(e.getApproval()))
+                    .mapToDouble(e -> e.getAmount() != null ? e.getAmount().doubleValue() : 0.0)
+                    .sum();
+
+            Double budgetVal = project.getBudget() != null ? project.getBudget().doubleValue() : null;
+            Integer budgetUsedPercent = null;
+            Boolean isBudgetOverrunRisk = null;
+
+            if (budgetVal != null && budgetVal > 0) {
+                budgetUsedPercent = (int) Math.round((spentVal / budgetVal) * 100);
+                isBudgetOverrunRisk = budgetUsedPercent > (reportedProgress + 15);
+            }
+
+            List<Material> materials = materialRepository.findByProjectId(project.getId());
+            List<String> lowStockList = materials.stream()
+                    .filter(m -> "Low Stock".equalsIgnoreCase(m.getStatus()) || "Out of Stock".equalsIgnoreCase(m.getStatus()))
+                    .map(Material::getName)
+                    .collect(Collectors.toList());
+
+            Boolean isMaterialRisk = !lowStockList.isEmpty();
+            String materialsStatus = "OK";
+            if (materials.stream().anyMatch(m -> "Out of Stock".equalsIgnoreCase(m.getStatus()))) {
+                materialsStatus = "Out of Stock";
+            } else if (isMaterialRisk) {
+                materialsStatus = "Low Stock";
+            }
+
+            Double finalBudget = budgetVal;
+            Double finalSpent = spentVal;
+            if ("SITE ENGINEER".equalsIgnoreCase(role)) {
+                finalSpent = null;
+                budgetUsedPercent = null;
+                isBudgetOverrunRisk = null;
+                finalBudget = null;
+            }
+
+            ProjectGanttSummary summary = new ProjectGanttSummary(
+                    project.getId(),
+                    project.getName(),
+                    project.getClient(),
+                    project.getLocation(),
+                    project.getStart(),
+                    project.getEnd(),
+                    project.getProgress(),
+                    project.getStage(),
+                    project.getStatus(),
+                    reportedProgress,
+                    progressSource,
+                    finalBudget,
+                    finalSpent,
+                    budgetUsedPercent,
+                    isBudgetOverrunRisk,
+                    materialsStatus,
+                    isMaterialRisk,
+                    lowStockList
+            );
+            summaries.add(summary);
+        }
+
+        return summaries;
     }
 }
