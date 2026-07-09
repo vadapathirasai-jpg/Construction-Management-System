@@ -4,9 +4,16 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.cms.entity.Material;
+import com.cms.entity.Project;
 import com.cms.repository.MaterialRepository;
+import com.cms.repository.ProjectRepository;
+import com.cms.service.ProjectAssignmentService;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Service
 public class MaterialService {
@@ -14,14 +21,24 @@ public class MaterialService {
     @Autowired
     private MaterialRepository materialRepository;
 
-    public Material saveMaterial(Material material){
+    @Autowired
+    private ProjectRepository projectRepository;
 
+    @Autowired
+    private ProjectAssignmentService projectAssignmentService;
+
+    public Material saveMaterial(Material material){
         material.setId(generateMaterialId());
+        Project validatedProject = validateProject(material.getProject());
+        material.setProject(validatedProject);
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!projectAssignmentService.canUserAccessProject(email, validatedProject.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this project.");
+        }
 
         normalizeMaterial(material);
-
         return materialRepository.save(material);
-
     }
 
     public List<Material> getAllMaterials() {
@@ -35,8 +52,7 @@ public class MaterialService {
     public Material updateMaterial(String id, Material updated) {
 
         Material material = materialRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Material not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Material not found"));
 
         material.setName(updated.getName());
         material.setCategory(updated.getCategory());
@@ -45,6 +61,14 @@ public class MaterialService {
         material.setSupplier(updated.getSupplier());
         material.setCost(updated.getCost());
 
+        Project validatedProject = validateProject(updated.getProject());
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!projectAssignmentService.canUserAccessProject(email, validatedProject.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this project.");
+        }
+
+        material.setProject(validatedProject);
         normalizeMaterial(material);
 
         return materialRepository.save(material);
@@ -54,10 +78,16 @@ public class MaterialService {
         materialRepository.deleteById(id);
     }
     
-    private void normalizeMaterial(
-            Material material){
-        if(material.getQuantity()==0){
+    private Project validateProject(Project project) {
+        if (project == null || project.getId() == null || project.getId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned project not found.");
+        }
+        return projectRepository.findById(project.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned project not found."));
+    }
 
+    private void normalizeMaterial(Material material){
+        if(material.getQuantity()==0){
             material.setStatus("Out of Stock");
         }
         else if(material.getQuantity()<20){

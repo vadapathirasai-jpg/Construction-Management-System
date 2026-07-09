@@ -10,7 +10,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import com.cms.entity.User;
+import com.cms.entity.Project;
 import com.cms.service.UserService;
+import com.cms.service.ProjectAssignmentService;
 import com.cms.repository.UserRepository;
 import com.cms.config.JwtUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,6 +33,9 @@ public class UserController {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private ProjectAssignmentService projectAssignmentService;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
@@ -86,6 +91,11 @@ public class UserController {
     @GetMapping("/{id}")
     public User getUserById(@PathVariable String id) {
         return userService.getUserById(id);
+    }
+
+    @GetMapping("/{userId}/projects")
+    public List<Project> getProjectsForUser(@PathVariable String userId) {
+        return projectAssignmentService.getProjectsForUser(userId);
     }
 
     @PutMapping("/{id}")

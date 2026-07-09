@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Button, Card, EmptyState, Icon, LoadingState, ProgressBar, StatusBadge, Table } from "../components/UI";
+import { Badge, Button, Card, EmptyState, Icon, LoadingState, ProgressBar, StatusBadge, Table, Modal, Field } from "../components/UI";
 import { useAppData } from "../context/AppData";
 import { formatCurrency, formatDate } from "../data";
+import ProjectAssignmentPanel from "../components/ProjectAssignmentPanel";
 
 const rolePresentation = {
   Admin: {
@@ -147,7 +149,7 @@ function SiteOverviewTimeline({ projects, navigate }) {
                       {project.name}
                     </p>
                     <p className="text-[9px] font-bold text-[#8E9AA6] uppercase tracking-widest mt-0.5">
-                      {(project.manager || "Unassigned").split(" ")[0]} · {project.stage || "FIELD"}
+                      {(project.manager?.name || (typeof project.manager === "string" ? project.manager : "Unassigned")).split(" ")[0]} · {project.stage || "FIELD"}
                     </p>
                   </button>
 
@@ -220,8 +222,8 @@ export default function Dashboard() {
   const projectNames = new Set(projects.map((project) => project.name));
   const projectIds = new Set(projects.map((project) => project.id));
   const hasGlobalScope = role === "Admin" || role === "Accountant";
-  const visibleWorkers = hasGlobalScope ? workers : workers.filter((worker) => projectNames.has(worker.project));
-  const visibleExpenses = hasGlobalScope ? expenses : expenses.filter((expense) => projectNames.has(expense.project));
+  const visibleWorkers = hasGlobalScope ? workers : workers.filter((worker) => projectNames.has(worker.project?.name || worker.project));
+  const visibleExpenses = hasGlobalScope ? expenses : expenses.filter((expense) => projectNames.has(expense.project?.name || expense.project));
   const visibleReports = hasGlobalScope ? dailyReports : dailyReports.filter((report) => projectIds.has(report.projectId));
   const activeProjects = projects.filter((project) => project.status === "Active");
   const completedProjects = projects.filter((project) => project.status === "Completed");
@@ -235,6 +237,12 @@ export default function Dashboard() {
     : 0;
   const today = new Date().toISOString().slice(0, 10);
   const reportsToday = visibleReports.filter((report) => report.date === today);
+  
+  const currentYearMonth = new Date().toISOString().slice(0, 7);
+  const thisMonthExpenses = expenses
+    .filter((e) => e.date && e.date.startsWith(currentYearMonth))
+    .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
   const remainingBudget = totalBudget - totalSpend;
   const dateLabel = new Intl.DateTimeFormat("en", {
     weekday: "long",
@@ -244,10 +252,10 @@ export default function Dashboard() {
 
   const metricsByRole = {
     Admin: [
-      ["Total Projects", projects.length, `${activeProjects.length} currently active`, "projects", "blue"],
-      ["Workforce", visibleWorkers.length, `${onSiteWorkers.length} workers on site`, "workers", "green"],
-      ["System Users", users.length, `${users.filter((user) => user.status === "Active").length} active accounts`, "profile", "violet"],
-      ["Portfolio Spend", formatCurrency(totalSpend), `${pendingExpenses.length} expenses awaiting approval`, "expenses", "amber"],
+      ["Active Projects", activeProjects.length, `${projects.length} total projects`, "projects", "blue"],
+      ["Pending Approvals", users.filter((u) => u.status === "Pending").length, "Requires manual approval", "profile", users.filter((u) => u.status === "Pending").length > 0 ? "amber" : "green"],
+      ["Total Workforce", workers.length, `${workers.filter(w => w.status === "On Site").length} workers on site`, "workers", "violet"],
+      ["Month Expenditures", formatCurrency(thisMonthExpenses), "Current month spend", "expenses", "green"],
     ],
     "Project Manager": [
       ["Assigned Projects", projects.length, projectScope.description, "projects", "green"],
@@ -291,6 +299,22 @@ export default function Dashboard() {
       ["Management Reports", "/reports", "progress", false],
     ],
   }[role] || [];
+
+  if (role !== "Admin" && projects.length === 0) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center p-6 font-sans">
+        <Card className="max-w-md p-8 text-center bg-white border-t-2 border-t-safety-orange">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-none bg-safety-orange/10 text-safety-orange">
+            <Icon name="warning" className="h-6 w-6" />
+          </div>
+          <h2 className="text-lg font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">No Project Assignment</h2>
+          <p className="mt-3 text-xs font-semibold text-blueprint-navy/60 leading-relaxed uppercase">
+            You haven't been assigned to any projects yet. Please contact your Admin to get started.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -364,30 +388,30 @@ export default function Dashboard() {
           lowStock={lowStock}
           pendingExpenses={pendingExpenses}
           navigate={navigate}
+          workers={workers}
+          expenses={expenses}
         />
       )}
       {role === "Project Manager" && (
         <ManagerWorkspace
           projects={projects}
-          workers={visibleWorkers}
-          lowStock={lowStock}
+          workers={workers}
+          expenses={expenses}
           navigate={navigate}
         />
       )}
       {role === "Site Engineer" && (
         <EngineerWorkspace
           projects={projects}
-          reports={visibleReports}
-          workers={visibleWorkers}
+          reports={dailyReports}
+          workers={workers}
           navigate={navigate}
         />
       )}
       {role === "Accountant" && (
         <AccountantWorkspace
           projects={projects}
-          expenses={visibleExpenses}
-          totalBudget={totalBudget}
-          totalSpend={totalSpend}
+          expenses={expenses}
           navigate={navigate}
         />
       )}
@@ -458,161 +482,608 @@ function TextLink({ children, onClick }) {
   return <button onClick={onClick} className="shrink-0 rounded-none px-2.5 py-1 text-xs font-bold font-industry uppercase tracking-wider text-safety-orange hover:bg-safety-orange/10 transition">{children}</button>;
 }
 
-function AdminWorkspace({ projects, lowStock, pendingExpenses, navigate }) {
+function EditUserModal({ user, onClose, onSave }) {
+  const [form, setForm] = useState({ ...user });
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.includes("@") || !form.role) {
+      setError("Please fill all required fields correctly.");
+      return;
+    }
+    onSave(form);
+  };
+
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-5">
-      <Card className="overflow-hidden xl:col-span-3 bg-white">
-        <SectionHeading title="Portfolio overview" description="Most recent projects across the business" action={<TextLink onClick={() => navigate("/projects")}>View all</TextLink>} />
-        {projects.length ? <ProjectTable projects={projects.slice(0, 5)} /> : <EmptyState message="No projects have been created." />}
+    <Modal
+      title="Edit User Details"
+      description={`Update profile information for ${user.id}.`}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSubmit}>Save Changes</Button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4 font-sans">
+        {error && <p className="text-xs font-bold text-red-600">{error.toUpperCase()}</p>}
+        <Field label="Full Name">
+          <input
+            className="form-control"
+            value={form.name || ""}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            required
+          />
+        </Field>
+        <Field label="Email Address">
+          <input
+            className="form-control"
+            type="email"
+            value={form.email || ""}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required
+          />
+        </Field>
+        <Field label="Role">
+          <select
+            className="form-control"
+            value={form.role || ""}
+            onChange={(e) => setForm({ ...form, role: e.target.value })}
+            required
+          >
+            <option value="Admin">Admin</option>
+            <option value="Project Manager">Project Manager</option>
+            <option value="Site Engineer">Site Engineer</option>
+            <option value="Accountant">Accountant</option>
+          </select>
+        </Field>
+      </form>
+    </Modal>
+  );
+}
+
+function AdminWorkspace({ projects, lowStock, pendingExpenses, navigate, workers, expenses }) {
+  const { users, update, remove, currentUser } = useAppData();
+  const [activeAssignmentProject, setActiveAssignmentProject] = useState(null);
+  const [activeEditUser, setActiveEditUser] = useState(null);
+  const [actionError, setActionError] = useState("");
+
+  const pendingUsers = users.filter((u) => u.status === "Pending");
+
+  const handleApproveUser = async (user) => {
+    setActionError("");
+    const result = await update("users", { ...user, status: "Active" });
+    if (result && !result.success) {
+      setActionError(result.error || "Failed to approve user.");
+    }
+  };
+
+  const handleToggleUserStatus = async (user) => {
+    setActionError("");
+    const nextStatus = user.status === "Active" ? "Disabled" : "Active";
+    const result = await update("users", { ...user, status: nextStatus });
+    if (result && !result.success) {
+      setActionError(result.error || `Failed to change user status to ${nextStatus}.`);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm("Are you sure you want to delete this user?")) {
+      setActionError("");
+      try {
+        await remove("users", userId);
+      } catch (err) {
+        setActionError("Failed to delete user.");
+      }
+    }
+  };
+
+  const handleSaveUserEdit = async (editedUser) => {
+    setActionError("");
+    const result = await update("users", editedUser);
+    if (result && result.success) {
+      setActiveEditUser(null);
+    } else {
+      setActionError(result.error || "Failed to save user edits.");
+    }
+  };
+
+  const handleDeleteProject = async (projectId, projectName) => {
+    if (window.confirm(`Are you sure you want to delete project "${projectName}"?`)) {
+      setActionError("");
+      try {
+        await remove("projects", projectId);
+      } catch (err) {
+        setActionError("Failed to delete project.");
+      }
+    }
+  };
+
+  return (
+    <div className="mt-6 space-y-6">
+      {actionError && (
+        <Card className="border-red-200 bg-red-50 p-4 text-xs font-bold text-red-700 flex justify-between items-center">
+          <span>{actionError.toUpperCase()}</span>
+          <button onClick={() => setActionError("")} className="text-red-700 font-bold hover:opacity-80">Dismiss</button>
+        </Card>
+      )}
+
+      {/* A. Pending Approvals Widget */}
+      {pendingUsers.length > 0 && (
+        <Card className="border-l-4 border-l-safety-orange bg-white overflow-hidden">
+          <div className="flex items-center justify-between border-b border-blueprint-navy/15 px-5 py-3.5 bg-safety-orange/5">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center bg-safety-orange text-white text-[10px] font-bold font-mono">
+                {pendingUsers.length}
+              </span>
+              <h2 className="text-xs font-extrabold font-industry tracking-wider text-blueprint-navy uppercase">
+                Pending Account Registrations
+              </h2>
+            </div>
+            <p className="text-[10px] font-bold text-safety-orange uppercase tracking-wider font-industry">Manual Approval Required</p>
+          </div>
+          <div className="divide-y divide-blueprint-navy/10">
+            {pendingUsers.map((user) => (
+              <div key={user.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3 hover:bg-blueprint-navy/[0.01]">
+                <div>
+                  <p className="text-xs font-bold text-blueprint-navy uppercase tracking-wider font-industry">{user.name}</p>
+                  <p className="text-[9px] font-bold text-[#8E9AA6] font-mono uppercase">{user.role} · {user.email}</p>
+                </div>
+                <Button
+                  variant="secondary"
+                  className="self-start sm:self-auto h-8 min-h-0 px-4 text-[10px] bg-safety-orange/10 border-safety-orange/20 text-safety-orange hover:bg-safety-orange hover:text-white"
+                  onClick={() => handleApproveUser(user)}
+                >
+                  Approve Account
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Grid containing Projects and Attention cards */}
+      <div className="grid gap-6 xl:grid-cols-5">
+        {/* C. Projects Table */}
+        <Card className="overflow-hidden xl:col-span-3 bg-white">
+          <SectionHeading title="Portfolio overview" description="Manage projects, budgets, and teams" action={<TextLink onClick={() => navigate("/projects")}>View all</TextLink>} />
+          {projects.length ? (
+            <Table columns={["Project", "Manager", "Progress", "Budget", "Status", "Actions"]}>
+              {projects.map((project) => (
+                <tr key={project.id} className="hover:bg-blueprint-navy/[0.01]">
+                  <td className="px-5 py-4">
+                    <p className="font-bold text-blueprint-navy uppercase tracking-wider font-industry text-xs">{project.name}</p>
+                    <p className="mt-0.5 text-[10px] font-bold text-[#8E9AA6] font-mono uppercase">{project.id}</p>
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold text-blueprint-navy/80 uppercase font-industry">
+                    {project.manager?.name || project.manager || "Unassigned"}
+                  </td>
+                  <td className="w-32 px-5 py-4">
+                    <ProgressBar value={getProgress(project)} compact />
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold font-mono text-blueprint-navy">
+                    {formatCurrency(project.budget)}
+                  </td>
+                  <td className="px-5 py-4">
+                    <StatusBadge status={project.status} />
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        className="h-8 min-h-0 px-3 text-[10px] rounded-none border-blueprint-navy/20"
+                        onClick={() => setActiveAssignmentProject(project)}
+                      >
+                        Team
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="h-8 min-h-0 px-3 text-[10px] rounded-none"
+                        onClick={() => navigate("/projects", { state: { openEditId: project.id } })}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="danger"
+                        className="h-8 min-h-0 px-3 text-[10px] rounded-none disabled:opacity-50"
+                        disabled={project.status !== "Completed"}
+                        title={project.status !== "Completed" ? "Only completed projects can be deleted" : "Delete Project"}
+                        onClick={() => handleDeleteProject(project.id, project.name)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          ) : (
+            <EmptyState message="No projects have been created." />
+          )}
+        </Card>
+
+        {/* Needs Attention Column */}
+        <Card className="p-5 xl:col-span-2 bg-white">
+          <h2 className="font-extrabold font-industry tracking-wider text-blueprint-navy uppercase text-sm mb-1">Needs attention</h2>
+          <p className="text-xs text-blueprint-navy/60 font-medium">Items that may block operations</p>
+          <div className="mt-5 space-y-3">
+            <AttentionItem tone="amber" icon="materials" title={`${lowStock.length} inventory alerts`} detail="Low or unavailable stock items" onClick={() => navigate("/materials")} />
+            <AttentionItem tone="rose" icon="expenses" title={`${pendingExpenses.length} pending expenses`} detail="Costs waiting for approval" onClick={() => navigate("/expenses")} />
+            <AttentionItem tone="sky" icon="projects" title={`${projects.filter((project) => getProgress(project) < 50).length} projects below 50%`} detail="Review schedule and delivery risks" onClick={() => navigate("/progress")} />
+          </div>
+        </Card>
+      </div>
+
+      {/* D. Users Table */}
+      <Card className="overflow-hidden bg-white">
+        <SectionHeading title="User Accounts" description="Manage system users, approve credentials, and toggle status." />
+        {users.length ? (
+          <Table columns={["User", "Email", "Role", "Status", "Actions"]}>
+            {users.map((user) => (
+              <tr key={user.id} className="hover:bg-blueprint-navy/[0.01]">
+                <td className="px-5 py-4">
+                  <p className="font-bold text-blueprint-navy uppercase tracking-wider font-industry text-xs">{user.name}</p>
+                  <p className="mt-0.5 text-[10px] font-bold text-[#8E9AA6] font-mono uppercase">{user.id}</p>
+                </td>
+                <td className="px-5 py-4 text-xs font-mono text-slate-600">
+                  {user.email}
+                </td>
+                <td className="px-5 py-4">
+                  <Badge tone="blue">{user.role}</Badge>
+                </td>
+                <td className="px-5 py-4">
+                  <StatusBadge status={user.status} />
+                </td>
+                <td className="px-5 py-4">
+                  <div className="flex gap-2">
+                    {user.status === "Pending" && (
+                      <Button
+                        variant="secondary"
+                        className="h-8 min-h-0 px-3 text-[10px] rounded-none bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                        onClick={() => handleApproveUser(user)}
+                      >
+                        Approve
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      className="h-8 min-h-0 px-3 text-[10px] rounded-none"
+                      onClick={() => setActiveEditUser(user)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant={user.status === "Active" ? "danger" : "secondary"}
+                      className="h-8 min-h-0 px-3 text-[10px] rounded-none"
+                      disabled={user.id === currentUser?.id}
+                      onClick={() => handleToggleUserStatus(user)}
+                    >
+                      {user.status === "Active" ? "Deactivate" : "Activate"}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="h-8 min-h-0 px-3 text-[10px] rounded-none"
+                      disabled={user.id === currentUser?.id}
+                      onClick={() => handleDeleteUser(user.id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <EmptyState message="No system users found." />
+        )}
       </Card>
-      <Card className="p-5 xl:col-span-2 bg-white">
-        <h2 className="font-extrabold font-industry tracking-wider text-blueprint-navy uppercase text-sm mb-1">Needs attention</h2>
-        <p className="text-xs text-blueprint-navy/60 font-medium">Items that may block operations</p>
-        <div className="mt-5 space-y-3">
-          <AttentionItem tone="amber" icon="materials" title={`${lowStock.length} inventory alerts`} detail="Low or unavailable stock items" onClick={() => navigate("/materials")} />
-          <AttentionItem tone="rose" icon="expenses" title={`${pendingExpenses.length} pending expenses`} detail="Costs waiting for approval" onClick={() => navigate("/expenses")} />
-          <AttentionItem tone="sky" icon="projects" title={`${projects.filter((project) => getProgress(project) < 50).length} projects below 50%`} detail="Review schedule and delivery risks" onClick={() => navigate("/progress")} />
-        </div>
-      </Card>
+
+      {/* Project Assignment Dialog */}
+      {activeAssignmentProject && (
+        <ProjectAssignmentPanel
+          project={activeAssignmentProject}
+          onClose={() => setActiveAssignmentProject(null)}
+        />
+      )}
+
+      {/* User Editing Dialog */}
+      {activeEditUser && (
+        <EditUserModal
+          user={activeEditUser}
+          onClose={() => setActiveEditUser(null)}
+          onSave={handleSaveUserEdit}
+        />
+      )}
     </div>
   );
 }
 
-function ManagerWorkspace({ projects, workers, lowStock, navigate }) {
-  const available = workers.filter((worker) => worker.status === "Available").length;
+function ManagerWorkspace({ projects, workers, expenses, navigate }) {
+  const getBudgetUsedPercent = (project) => {
+    const projectExpenses = expenses.filter(
+      (e) =>
+        (e.project?.id || e.project) === project.id ||
+        (e.project?.name || e.project) === project.name
+    );
+    const spent = projectExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    return project.budget ? Math.round((spent / project.budget) * 100) : 0;
+  };
+
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-5">
-      <Card className="p-5 xl:col-span-3 bg-white">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-extrabold font-industry tracking-wider text-blueprint-navy uppercase text-sm mb-1">Assigned project delivery</h2>
-            <p className="text-xs text-blueprint-navy/60 font-medium">Progress across the sites you manage</p>
-          </div>
-          <TextLink onClick={() => navigate("/progress")}>Full progress</TextLink>
-        </div>
-        {projects.length ? <div className="mt-6 space-y-6">{projects.slice(0, 5).map((project) => (
-          <div key={project.id}>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-xs font-bold text-blueprint-navy uppercase tracking-wider font-industry">{project.name}</p>
-                <p className="mt-0.5 text-[10px] font-bold text-blueprint-navy/50 font-mono">STAGE: {project.stage || "Planning"} · DUE {formatDate(project.end)}</p>
+    <div className="mt-6 space-y-6">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {projects.map((project) => {
+          const budgetUsed = getBudgetUsedPercent(project);
+          const progress = project.status === "Completed" ? 100 : Number(project.progress || 0);
+
+          return (
+            <Card
+              key={project.id}
+              className="group relative cursor-pointer overflow-hidden p-6 border-t-2 border-t-blueprint-navy bg-white hover:border-safety-orange hover:shadow-md transition-all duration-300"
+              onClick={() => navigate(`/projects/${project.id}`)}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-[#8E9AA6] font-industry">
+                    {project.client}
+                  </p>
+                  <h3 className="mt-1 truncate text-lg font-extrabold tracking-wider text-blueprint-navy font-industry uppercase">
+                    {project.name}
+                  </h3>
+                  <p className="mt-0.5 text-[10px] font-bold text-blueprint-navy/50 font-mono">
+                    ID: {project.id} · STAGE: {project.stage || "Planning"}
+                  </p>
+                </div>
+                <StatusBadge status={project.status} />
               </div>
-              <StatusBadge status={project.status} />
-            </div>
-            <ProgressBar value={getProgress(project)} compact />
-          </div>
-        ))}</div> : <EmptyState message="No projects are assigned to you." />}
-      </Card>
-      <Card className="p-5 xl:col-span-2 bg-white">
-        <h2 className="font-extrabold font-industry tracking-wider text-blueprint-navy uppercase text-sm mb-1">Site readiness</h2>
-        <p className="text-xs text-blueprint-navy/60 font-medium">Crew and supply availability</p>
-        <div className="mt-5 space-y-3">
-          <AttentionItem tone="emerald" icon="workers" title={`${workers.length} assigned workers`} detail={`${available} currently available`} onClick={() => navigate("/workers")} />
-          <AttentionItem tone="amber" icon="materials" title={`${lowStock.length} stock warnings`} detail="Review material availability" onClick={() => navigate("/materials")} />
-          <AttentionItem tone="sky" icon="progress" title="File today's site update" detail="Record work, labour, and materials" onClick={() => navigate("/daily-reports")} />
-        </div>
-      </Card>
+
+              <div className="mt-6 space-y-4">
+                <div>
+                  <div className="mb-1 flex items-center justify-between text-[10px] font-bold font-industry uppercase text-blueprint-navy/70">
+                    <span>Overall Progress</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <ProgressBar value={progress} compact />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 border-t border-blueprint-navy/10 pt-4">
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-blueprint-navy/40 font-industry">
+                      Budget Used
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-blueprint-navy font-mono">
+                      {budgetUsed}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-blueprint-navy/40 font-industry">
+                      Total Budget
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-blueprint-navy font-mono">
+                      {formatCurrency(project.budget)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 function EngineerWorkspace({ projects, reports, workers, navigate }) {
-  const latestReport = [...reports].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  const latestReports = [...reports].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-5">
-      <Card className="p-5 xl:col-span-3 bg-white">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-extrabold font-industry tracking-wider text-blueprint-navy uppercase text-sm mb-1">My assigned sites</h2>
-            <p className="text-xs text-blueprint-navy/60 font-medium">Current stage and completion at a glance</p>
-          </div>
-          <TextLink onClick={() => navigate("/daily-reports")}>Add report</TextLink>
-        </div>
-        {projects.length ? <div className="mt-5 grid gap-4 md:grid-cols-2">{projects.map((project) => (
-          <button key={project.id} onClick={() => navigate(`/projects/${project.id}`)} className="rounded-none border border-blueprint-navy/15 bg-[#F7F5F0]/50 p-4 text-left transition hover:border-safety-orange hover:bg-safety-orange/[0.02]">
-            <div className="flex items-start justify-between gap-2">
+    <div className="mt-6 space-y-6">
+      {/* Quick Action Project Cards */}
+      <div>
+        <h2 className="text-xs font-extrabold font-industry tracking-wider text-blueprint-navy uppercase mb-3">
+          Assigned Projects
+        </h2>
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {projects.map((project) => (
+            <Card
+              key={project.id}
+              className="p-6 border-t-2 border-t-blueprint-navy bg-white hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+            >
               <div>
-                <p className="font-bold text-blueprint-navy uppercase tracking-wider font-industry text-xs">{project.name}</p>
-                <p className="mt-1 text-[10px] font-bold text-blueprint-navy/60 uppercase font-industry">{project.location || project.stage || "Site details"}</p>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-[#8E9AA6] font-industry">
+                      {project.location || "Site Location"}
+                    </p>
+                    <h3 className="mt-1 truncate text-base font-extrabold tracking-wider text-blueprint-navy font-industry uppercase">
+                      {project.name}
+                    </h3>
+                    <p className="mt-0.5 text-[10px] font-bold text-blueprint-navy/50 font-mono">
+                      STAGE: {project.stage || "Planning"}
+                    </p>
+                  </div>
+                  <span className="text-xs font-extrabold font-mono text-blueprint-navy">
+                    {project.status === "Completed" ? 100 : Number(project.progress || 0)}%
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <ProgressBar value={project.status === "Completed" ? 100 : Number(project.progress || 0)} compact />
+                </div>
               </div>
-              <span className="text-sm font-extrabold font-mono text-blueprint-navy">{getProgress(project)}%</span>
-            </div>
-            <div className="mt-4"><ProgressBar value={getProgress(project)} compact /></div>
-          </button>
-        ))}</div> : <EmptyState message="No sites are assigned to your account." />}
-      </Card>
-      <Card className="p-5 xl:col-span-2 bg-white">
-        <h2 className="font-extrabold font-industry tracking-wider text-blueprint-navy uppercase text-sm mb-1">Daily site brief</h2>
-        <p className="text-xs text-blueprint-navy/60 font-medium">Your latest operational context</p>
-        <div className="mt-5 space-y-3">
-          <AttentionItem tone="emerald" icon="workers" title={`${workers.filter((worker) => worker.status === "On Site").length} crew members on site`} detail={`${workers.length} total in assigned teams`} />
-          <AttentionItem tone="sky" icon="check" title={latestReport ? `Last report: ${formatDate(latestReport.date)}` : "No report submitted yet"} detail={latestReport?.remarks || "Submit a report to start the site timeline"} onClick={() => navigate("/daily-reports")} />
+
+              <div className="mt-6 border-t border-blueprint-navy/10 pt-4">
+                <Button
+                  className="w-full text-[10px] font-bold uppercase tracking-wider font-industry py-2.5 rounded-none"
+                  onClick={() => navigate("/daily-reports", { state: { projectId: project.id } })}
+                >
+                  Submit Daily Report
+                </Button>
+              </div>
+            </Card>
+          ))}
         </div>
+      </div>
+
+      {/* Submission History Table */}
+      <Card className="overflow-hidden bg-white">
+        <SectionHeading
+          title="Recent Site Reports"
+          description="Your latest daily submissions"
+          action={<TextLink onClick={() => navigate("/daily-reports")}>New report</TextLink>}
+        />
+        {latestReports.length ? (
+          <Table columns={["Date", "Project", "Workers Present", "Progress", "Site Update"]}>
+            {latestReports.map((report) => {
+              const proj = projects.find((p) => p.id === report.projectId);
+              return (
+                <tr key={report.id} className="hover:bg-blueprint-navy/[0.01]">
+                  <td className="whitespace-nowrap px-5 py-4 text-xs font-mono text-blueprint-navy/80">
+                    {formatDate(report.date)}
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold text-blueprint-navy uppercase tracking-wider font-industry">
+                    {proj?.name || "Unknown Project"}
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold text-blueprint-navy/80 font-mono">
+                    {report.present} present (absent: {report.absent || 0})
+                  </td>
+                  <td className="px-5 py-4">
+                    <Badge tone="blue">{report.progress}%</Badge>
+                  </td>
+                  <td className="max-w-md px-5 py-4 text-xs text-slate-600 truncate">
+                    {report.remarks}
+                  </td>
+                </tr>
+              );
+            })}
+          </Table>
+        ) : (
+          <EmptyState message="No daily reports submitted yet." />
+        )}
       </Card>
     </div>
   );
 }
 
-function AccountantWorkspace({ projects, expenses, totalBudget, totalSpend, navigate }) {
-  const recentExpenses = [...expenses].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 6);
+function AccountantWorkspace({ projects, expenses, navigate }) {
+  const getSpentTally = (project) => {
+    const projectExpenses = expenses.filter(
+      (e) =>
+        (e.project?.id || e.project) === project.id ||
+        (e.project?.name || e.project) === project.name
+    );
+    return projectExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  };
+
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-5">
-      <Card className="overflow-hidden xl:col-span-3 bg-white">
-        <SectionHeading title="Recent transactions" description="Latest expenses across the portfolio" action={<TextLink onClick={() => navigate("/expenses")}>View ledger</TextLink>} />
-        {recentExpenses.length ? (
-          <Table columns={["Date", "Description", "Project", "Amount", "Approval"]}>
-            {recentExpenses.map((expense) => (
+    <div className="mt-6 space-y-6">
+      {/* Project Financial Cards */}
+      <div>
+        <h2 className="text-xs font-extrabold font-industry tracking-wider text-blueprint-navy uppercase mb-3">
+          Project Budgets & Spend
+        </h2>
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {projects.map((project) => {
+            const spent = getSpentTally(project);
+            const remaining = project.budget - spent;
+
+            return (
+              <Card
+                key={project.id}
+                className="p-6 border-t-2 border-t-blueprint-navy bg-white hover:shadow-md transition-all duration-300"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-[#8E9AA6] font-industry">
+                      {project.client}
+                    </p>
+                    <h3 className="truncate text-base font-extrabold tracking-wider text-blueprint-navy font-industry uppercase">
+                      {project.name}
+                    </h3>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="h-8 min-h-0 px-3 text-[10px] rounded-none border-blueprint-navy/20"
+                    onClick={() => navigate("/expenses", { state: { openAdd: true, projectId: project.id } })}
+                  >
+                    Add Expense
+                  </Button>
+                </div>
+
+                <div className="mt-6 grid grid-cols-3 gap-2 border-t border-blueprint-navy/10 pt-4">
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-blueprint-navy/40 font-industry">
+                      Budget
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-blueprint-navy font-mono">
+                      {formatCurrency(project.budget)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-[#d96b14] font-industry">
+                      Spent
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-[#d96b14] font-mono">
+                      {formatCurrency(spent)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 font-industry">
+                      Remaining
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-emerald-600 font-mono">
+                      {formatCurrency(remaining)}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Expenses Ledger Table */}
+      <Card className="overflow-hidden bg-white">
+        <SectionHeading
+          title="Expenses Ledger"
+          description="Recent spending across your assigned projects"
+          action={<TextLink onClick={() => navigate("/expenses")}>View all</TextLink>}
+        />
+        {expenses.length ? (
+          <Table columns={["Date", "Description", "Project", "Category", "Amount", "Status"]}>
+            {expenses.slice(0, 10).map((expense) => (
               <tr key={expense.id} className="hover:bg-blueprint-navy/[0.01]">
-                <td className="whitespace-nowrap px-5 py-4 text-xs font-mono text-blueprint-navy/80">{formatDate(expense.date)}</td>
-                <td className="px-5 py-4 text-xs font-bold text-blueprint-navy uppercase tracking-wider font-industry">{expense.description}</td>
-                <td className="px-5 py-4 text-xs text-blueprint-navy/80 uppercase font-industry">{expense.project}</td>
-                <td className="whitespace-nowrap px-5 py-4 text-xs font-bold font-mono text-blueprint-navy">{formatCurrency(expense.amount)}</td>
-                <td className="px-5 py-4"><StatusBadge status={expense.approval} /></td>
+                <td className="whitespace-nowrap px-5 py-4 text-xs font-mono text-blueprint-navy/80">
+                  {formatDate(expense.date)}
+                </td>
+                <td className="px-5 py-4 text-xs font-bold text-blueprint-navy uppercase tracking-wider font-industry">
+                  {expense.description}
+                </td>
+                <td className="px-5 py-4 text-xs text-blueprint-navy/80 uppercase font-industry">
+                  {expense.project?.name || expense.project || "Unassigned"}
+                </td>
+                <td className="px-5 py-4">
+                  <Badge tone="blue">{expense.category}</Badge>
+                </td>
+                <td className="whitespace-nowrap px-5 py-4 text-xs font-bold font-mono text-blueprint-navy">
+                  {formatCurrency(expense.amount)}
+                </td>
+                <td className="px-5 py-4">
+                  <StatusBadge status={expense.approval} />
+                </td>
               </tr>
             ))}
           </Table>
-        ) : <EmptyState message="No expenses have been recorded." />}
-      </Card>
-      <Card className="p-5 xl:col-span-2 bg-white">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="font-extrabold font-industry tracking-wider text-blueprint-navy uppercase text-sm mb-1">Budget utilization</h2>
-            <p className="text-xs text-blueprint-navy/60 font-medium">Recorded spend against budget</p>
-          </div>
-          <TextLink onClick={() => navigate("/reports")}>Reports</TextLink>
-        </div>
-        <div className="mt-7">
-          <p className="text-3xl font-extrabold tracking-wider text-blueprint-navy font-industry">{totalBudget ? Math.round((totalSpend / totalBudget) * 100) : 0}%</p>
-          <div className="mt-3"><ProgressBar value={totalBudget ? (totalSpend / totalBudget) * 100 : 0} /></div>
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <div className="rounded-none border border-blueprint-navy/15 bg-[#F7F5F0]/60 p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-blueprint-navy/50 font-industry">BUDGET TALLY</p><p className="mt-1 font-extrabold text-sm text-blueprint-navy font-mono">{formatCurrency(totalBudget)}</p></div>
-            <div className="rounded-none border border-safety-orange/20 bg-safety-orange/[0.02] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-safety-orange/80 font-industry">SPENT TALLY</p><p className="mt-1 font-extrabold text-sm text-safety-orange font-mono">{formatCurrency(totalSpend)}</p></div>
-          </div>
-          <p className="mt-5 text-[10px] font-semibold text-[#8E9AA6] uppercase tracking-wider font-industry">{projects.length} projects included in this ledger summary.</p>
-        </div>
+        ) : (
+          <EmptyState message="No expenses recorded yet." />
+        )}
       </Card>
     </div>
   );
 }
 
-function ProjectTable({ projects }) {
-  return (
-    <Table columns={["Project", "Manager", "Progress", "Status", "Due Date"]}>
-      {projects.map((project) => (
-        <tr className="hover:bg-blueprint-navy/[0.01]" key={project.id}>
-          <td className="px-5 py-4">
-            <p className="font-bold text-blueprint-navy uppercase tracking-wider font-industry text-xs">{project.name}</p>
-            <p className="mt-0.5 text-[10px] font-bold text-[#8E9AA6] font-mono uppercase">{project.id}</p>
-          </td>
-          <td className="px-5 py-4 text-xs font-bold text-blueprint-navy/80 uppercase font-industry">{project.manager}</td>
-          <td className="w-40 px-5 py-4"><ProgressBar value={getProgress(project)} compact /></td>
-          <td className="px-5 py-4"><StatusBadge status={project.status} /></td>
-          <td className="whitespace-nowrap px-5 py-4 text-xs font-mono text-blueprint-navy/80">{formatDate(project.end)}</td>
-        </tr>
-      ))}
-    </Table>
-  );
-}
+// ProjectTable component is unused.
 
 function AttentionItem({ tone, icon, title, detail, onClick }) {
   const tones = {

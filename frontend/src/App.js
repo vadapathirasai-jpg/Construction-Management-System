@@ -27,8 +27,8 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
-        <Route path="/workers" element={<Authorized permission="manageWorkers"><Workers /></Authorized>} />
-        <Route path="/materials" element={<Authorized permission="manageMaterials"><Materials /></Authorized>} />
+        <Route path="/workers" element={<Authorized permission="viewWorkers"><Workers /></Authorized>} />
+        <Route path="/materials" element={<Authorized permission="viewMaterials"><Materials /></Authorized>} />
         <Route path="/expenses" element={<Authorized permission="manageExpenses"><Expenses /></Authorized>} />
         <Route path="/progress" element={<Progress />} />
         <Route path="/profile" element={<Profile />} />

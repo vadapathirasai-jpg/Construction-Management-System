@@ -16,14 +16,18 @@ public class Worker {
     private String role;
     private String phone;
     private BigDecimal wage;
-    private String project;
+
+    @ManyToOne
+    @JoinColumn(name = "project_id")
+    private Project project;
+
     private String status;
     
     public Worker() {
     	
     }
     
-	public Worker(String id, String name, String role, String phone, BigDecimal wage, String project, String status) {
+	public Worker(String id, String name, String role, String phone, BigDecimal wage, Project project, String status) {
 		super();
 		this.id = id;
 		this.name = name;
@@ -63,10 +67,10 @@ public class Worker {
 	public void setWage(BigDecimal wage) {
 		this.wage = wage;
 	}
-	public String getProject() {
+	public Project getProject() {
 		return project;
 	}
-	public void setProject(String project) {
+	public void setProject(Project project) {
 		this.project = project;
 	}
 	public String getStatus() {
@@ -75,6 +79,5 @@ public class Worker {
 	public void setStatus(String status) {
 		this.status = status;
 	}
-    
     
 }

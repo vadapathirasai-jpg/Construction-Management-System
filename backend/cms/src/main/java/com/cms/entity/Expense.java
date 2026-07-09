@@ -13,13 +13,20 @@ public class Expense {
 
     private LocalDate date;
     private String description;
-    private String project;
+
+    @ManyToOne
+    @JoinColumn(name = "project_id")
+    private Project project;
+
     private String category;
     private BigDecimal amount;
     private String approval;
     
+    public Expense() {
+		
+	}
     
-	public Expense(String id, LocalDate date, String description, String project, String category, BigDecimal amount,
+	public Expense(String id, LocalDate date, String description, Project project, String category, BigDecimal amount,
 			String approval) {
 		super();
 		this.id = id;
@@ -30,9 +37,7 @@ public class Expense {
 		this.amount = amount;
 		this.approval = approval;
 	}
-	public Expense() {
-		
-	}
+
 	public String getId() {
 		return id;
 	}
@@ -51,10 +56,10 @@ public class Expense {
 	public void setDescription(String description) {
 		this.description = description;
 	}
-	public String getProject() {
+	public Project getProject() {
 		return project;
 	}
-	public void setProject(String project) {
+	public void setProject(Project project) {
 		this.project = project;
 	}
 	public String getCategory() {
@@ -75,6 +80,5 @@ public class Expense {
 	public void setApproval(String approval) {
 		this.approval = approval;
 	}
-    
     
 }

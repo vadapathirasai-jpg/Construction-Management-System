@@ -19,13 +19,17 @@ public class Material {
     private String supplier;
     private BigDecimal cost;
     private String status;
+
+    @ManyToOne
+    @JoinColumn(name = "project_id")
+    private Project project;
     
     public Material() {
     	
     }
     
 	public Material(String id, String name, String category, double quantity, String unit, String supplier,
-			BigDecimal cost, String status) {
+			BigDecimal cost, String status, Project project) {
 		super();
 		this.id = id;
 		this.name = name;
@@ -35,6 +39,7 @@ public class Material {
 		this.supplier = supplier;
 		this.cost = cost;
 		this.status = status;
+		this.project = project;
 	}
 	public String getId() {
 		return id;
@@ -84,6 +89,11 @@ public class Material {
 	public void setStatus(String status) {
 		this.status = status;
 	}
-    
+	public Project getProject() {
+		return project;
+	}
+	public void setProject(Project project) {
+		this.project = project;
+	}
     
 }

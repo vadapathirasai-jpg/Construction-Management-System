@@ -3,6 +3,16 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 const AppDataContext = createContext(null);
 const API_BASE = "http://localhost:8081";
 
+const normalizeRole = (role) => {
+  if (!role) return "";
+  const r = role.toUpperCase();
+  if (r === "ADMIN") return "Admin";
+  if (r === "PROJECT MANAGER" || r === "PROJECT_MANAGER") return "Project Manager";
+  if (r === "SITE ENGINEER" || r === "SITE_ENGINEER") return "Site Engineer";
+  if (r === "ACCOUNTANT") return "Accountant";
+  return role;
+};
+
 export function AppDataProvider({ children }) {
   const [projects, setProjects] = useState([]);
   const [workers, setWorkers] = useState([]);
@@ -10,12 +20,30 @@ export function AppDataProvider({ children }) {
   const [expenses, setExpenses] = useState([]);
   const [dailyReports, setDailyReports] = useState([]);
   const [users, setUsers] = useState([]);
+  const [assignedProjects, setAssignedProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [token, setToken] = useState(localStorage.getItem("token") || "");
-  const [currentUser, setCurrentUser] = useState(
-    localStorage.getItem("currentUser") ? JSON.parse(localStorage.getItem("currentUser")) : null
-  );
+  const [currentUser, setCurrentUserRaw] = useState(() => {
+    const cached = localStorage.getItem("currentUser");
+    if (!cached) return null;
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed && parsed.role) {
+        parsed.role = normalizeRole(parsed.role);
+      }
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const setCurrentUser = (user) => {
+    if (user && user.role) {
+      user.role = normalizeRole(user.role);
+    }
+    setCurrentUserRaw(user);
+  };
 
   const logout = useCallback(() => {
     setToken("");
@@ -80,7 +108,12 @@ export function AppDataProvider({ children }) {
 
       if (currentUser?.role === "Admin") {
         try {
-          setUsers(await readCollection("users"));
+          const list = await readCollection("users");
+          const normalized = list.map((u) => ({
+            ...u,
+            role: normalizeRole(u.role)
+          }));
+          setUsers(normalized);
         } catch (err) {
           console.error("Error loading users from backend:", err);
           setUsers([]);
@@ -89,6 +122,21 @@ export function AppDataProvider({ children }) {
       } else {
         setUsers([]);
       }
+
+      let userProjects = [];
+      if (currentUser && currentUser.role !== "Admin") {
+        try {
+          const response = await authFetch(`${API_BASE}/users/${currentUser.id}/projects`);
+          if (response.ok) {
+            userProjects = await response.json();
+          } else {
+            console.error("Failed to load user projects");
+          }
+        } catch (err) {
+          console.error("Error loading user projects from backend:", err);
+        }
+      }
+      setAssignedProjects(userProjects);
 
       if (failedCollections.length) {
         setError(`Could not load ${failedCollections.join(", ")} from the database.`);
@@ -99,7 +147,7 @@ export function AppDataProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [token, currentUser?.role, readCollection]);
+  }, [token, currentUser, readCollection, authFetch]);
 
   useEffect(() => {
     if (token) {
@@ -261,30 +309,35 @@ export function AppDataProvider({ children }) {
   };
 
   const permissions = {
-    Admin: ["manageUsers", "createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "delete"],
-    "Project Manager": ["createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport"],
-    "Site Engineer": ["viewReports", "dailyReport"],
+    Admin: ["manageUsers", "createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "delete", "viewWorkers", "viewMaterials"],
+    "Project Manager": ["createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials"],
+    "Site Engineer": ["viewReports", "dailyReport", "viewWorkers", "viewMaterials"],
     Accountant: ["manageExpenses", "viewReports"],
   };
   const can = (permission) => {
     if (!currentUser) return false;
     return permissions[currentUser.role]?.includes(permission);
   };
-  const projectManagerProjects = projects.filter((project) => project.manager === currentUser?.name);
-  const assignedProjectNames = new Set(workers.filter((worker) => worker.name === currentUser?.name).map((worker) => worker.project).filter(Boolean));
-  const siteEngineerProjects = projects.filter((project) => assignedProjectNames.has(project.name));
+
   const accessibleProjects = !currentUser ? []
-    : currentUser.role === "Project Manager"
-      ? projectManagerProjects
-      : currentUser.role === "Site Engineer"
-        ? siteEngineerProjects
-        : projects;
+    : currentUser.role === "Admin"
+      ? projects
+      : assignedProjects;
+
   const projectScope = !currentUser ? { label: "Projects", description: "No project scope available.", isScoped: false }
-    : currentUser.role === "Admin" || currentUser.role === "Accountant"
+    : currentUser.role === "Admin"
       ? { label: "All Projects", description: `Showing all ${projects.length} projects.`, isScoped: false }
       : { label: "Assigned Projects", description: `Showing ${accessibleProjects.length} assigned of ${projects.length} total projects.`, isScoped: true };
 
-  return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers, materials, expenses, dailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, logout, can, addDailyReport, add, update, remove }}>{children}</AppDataContext.Provider>;
+  const accessibleProjectNames = new Set(accessibleProjects.map((p) => p.name));
+  const accessibleProjectIds = new Set(accessibleProjects.map((p) => p.id));
+
+  const filteredWorkers = currentUser?.role === "Admin" ? workers : workers.filter((w) => accessibleProjectNames.has(w.project?.name || w.project));
+  const filteredMaterials = currentUser?.role === "Admin" ? materials : materials.filter((m) => accessibleProjectNames.has(m.project?.name || m.project));
+  const filteredExpenses = currentUser?.role === "Admin" ? expenses : expenses.filter((e) => accessibleProjectNames.has(e.project?.name || e.project));
+  const filteredDailyReports = currentUser?.role === "Admin" ? dailyReports : dailyReports.filter((r) => accessibleProjectIds.has(r.projectId));
+
+  return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, logout, can, addDailyReport, add, update, remove, authFetch }}>{children}</AppDataContext.Provider>;
 }
 
 export const useAppData = () => useContext(AppDataContext);

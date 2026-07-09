@@ -6,8 +6,8 @@ import { useAppData } from "../context/AppData";
 const navigation = [
   ["Dashboard", "/dashboard", "dashboard", null],
   ["Projects", "/projects", "projects", null],
-  ["Workers", "/workers", "workers", "manageWorkers"],
-  ["Materials", "/materials", "materials", "manageMaterials"],
+  ["Workers", "/workers", "workers", "viewWorkers"],
+  ["Materials", "/materials", "materials", "viewMaterials"],
   ["Expenses", "/expenses", "expenses", "manageExpenses"],
   ["Progress", "/progress", "progress", null],
   ["Daily Reports", "/daily-reports", "progress", "dailyReport"],
