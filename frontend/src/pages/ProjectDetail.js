@@ -7,9 +7,13 @@ import { formatCurrency, formatDate, workerRoles } from "../data";
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { accessibleProjects, workers, materials, expenses, dailyReports, can, loading, error, update, currentUser } = useAppData();
+  const { accessibleProjects, workers, materials, expenses, dailyReports, can, loading, error, update, currentUser, authFetch, API_BASE } = useAppData();
   const [editing, setEditing] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(true);
+  const [assistantQuestion, setAssistantQuestion] = useState("");
+  const [assistantMessages, setAssistantMessages] = useState([]);
+  const [assistantLoading, setAssistantLoading] = useState(false);
 
   const project = accessibleProjects.find((item) => item.id === id);
 
@@ -34,6 +38,49 @@ export default function ProjectDetail() {
     }
   };
 
+  const sendAssistantQuestion = async (questionText) => {
+    const trimmedQuestion = (questionText || "").trim();
+    if (!trimmedQuestion || assistantLoading) return;
+
+    const userMessage = { id: `user-${Date.now()}`, role: "user", text: trimmedQuestion };
+    setAssistantMessages((messages) => [...messages, userMessage]);
+    setAssistantQuestion("");
+    setAssistantLoading(true);
+
+    try {
+      const response = await authFetch(`${API_BASE}/projects/${id}/assistant/ask`, {
+        method: "POST",
+        body: JSON.stringify({ question: trimmedQuestion }),
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text().catch(() => "");
+        let message = response.status === 503 ? "AI assistant is temporarily unavailable, please try again." : "Could not get an assistant response.";
+        if (response.status !== 503) {
+          try {
+            const errorBody = JSON.parse(responseText);
+            message = errorBody.message || errorBody.error || message;
+          } catch (e) {
+            message = responseText || message;
+          }
+        }
+        throw new Error(message);
+      }
+
+      const data = await response.json();
+      setAssistantMessages((messages) => [...messages, { id: `assistant-${Date.now()}`, role: "assistant", text: data.answer || "No answer was returned." }]);
+    } catch (err) {
+      setAssistantMessages((messages) => [...messages, { id: `assistant-error-${Date.now()}`, role: "assistant", text: err.message || "AI assistant is temporarily unavailable, please try again.", error: true }]);
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+
+  const handleAssistantSubmit = (e) => {
+    e.preventDefault();
+    sendAssistantQuestion(assistantQuestion);
+  };
+
   if (loading) return <Card><LoadingState /></Card>;
   if (!project) return <Card><EmptyState message="Project not found." /></Card>;
 
@@ -51,6 +98,7 @@ export default function ProjectDetail() {
   const reports = dailyReports.filter((report) => report.projectId === id).sort((a, b) => b.date.localeCompare(a.date));
   const latest = reports[0];
   const spent = projectExpenses.reduce((sum, item) => sum + item.amount, 0);
+  const canUseAssistant = ["Admin", "Project Manager"].includes(currentUser?.role);
 
   const workerCounts = workerRoles.map((role) => [role, latest?.[role] ?? projectWorkers.filter((worker) => worker.role === role).length]).filter(([, count]) => count);
 
@@ -194,6 +242,71 @@ export default function ProjectDetail() {
           </div>
         </Card>
       </div>
+
+      {canUseAssistant && (
+        <Card className="mt-5 p-5">
+          <div className="flex flex-col gap-3 border-b border-blueprint-navy/15 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold">Ask about this project</h2>
+              <p className="mt-1 text-xs text-slate-500">Answers use this project's daily reports and profile data.</p>
+            </div>
+            <Button variant="secondary" onClick={() => setAssistantOpen((open) => !open)}>
+              {assistantOpen ? "Collapse" : "Expand"}
+            </Button>
+          </div>
+
+          {assistantOpen && (
+            <div className="mt-5">
+              <div className="max-h-80 space-y-3 overflow-y-auto border border-blueprint-navy/15 bg-blueprint-navy/[0.02] p-4">
+                {assistantMessages.length ? assistantMessages.map((message) => (
+                  <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[85%] border px-3.5 py-2 text-sm ${message.role === "user" ? "border-safety-orange/30 bg-safety-orange/10 text-blueprint-navy" : message.error ? "border-red-200 bg-red-50 text-red-700" : "border-blueprint-navy/15 bg-white text-blueprint-navy"}`}>
+                      <p className="whitespace-pre-wrap">{message.text}</p>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-sm text-slate-500">Ask a question grounded in the project's daily reports.</p>
+                )}
+                {assistantLoading && (
+                  <div className="flex justify-start">
+                    <div className="inline-flex items-center gap-2 border border-blueprint-navy/15 bg-white px-3.5 py-2 text-sm text-blueprint-navy/70">
+                      <span className="h-3.5 w-3.5 animate-spin border-2 border-blueprint-navy/20 border-t-safety-orange" />
+                      Thinking...
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="border border-blueprint-navy/20 bg-white px-3 py-1.5 text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy hover:bg-blueprint-navy/5 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => {
+                    setAssistantQuestion("Summarize progress so far");
+                    sendAssistantQuestion("Summarize progress so far");
+                  }}
+                  disabled={assistantLoading}
+                >
+                  Summarize progress so far
+                </button>
+              </div>
+
+              <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={handleAssistantSubmit}>
+                <input
+                  className="form-control"
+                  value={assistantQuestion}
+                  onChange={(e) => setAssistantQuestion(e.target.value)}
+                  placeholder="Ask about progress, materials, or site remarks"
+                  disabled={assistantLoading}
+                />
+                <Button type="submit" disabled={assistantLoading || !assistantQuestion.trim()}>
+                  Send
+                </Button>
+              </form>
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card className="mt-5">
         <div className="px-5 py-4">

@@ -346,8 +346,7 @@ export function AppDataProvider({ children }) {
   const filteredExpenses = currentUser?.role === "Admin" ? expenses : expenses.filter((e) => accessibleProjectNames.has(e.project?.name || e.project));
   const filteredDailyReports = currentUser?.role === "Admin" ? dailyReports : dailyReports.filter((r) => accessibleProjectIds.has(r.projectId));
 
-  return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, logout, can, addDailyReport, add, update, remove, authFetch }}>{children}</AppDataContext.Provider>;
-}
+return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE }}>{children}</AppDataContext.Provider>;}
 
 export const useAppData = () => useContext(AppDataContext);
 

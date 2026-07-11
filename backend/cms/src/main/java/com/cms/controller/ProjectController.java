@@ -1,6 +1,8 @@
 package com.cms.controller;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +13,7 @@ import org.springframework.security.core.GrantedAuthority;
 import com.cms.dto.ProjectGanttSummary;
 import com.cms.entity.Project;
 import com.cms.entity.User;
+import com.cms.service.ProjectAssistantService;
 import com.cms.service.ProjectService;
 
 @RestController
@@ -20,6 +23,9 @@ public class ProjectController {
 
     @Autowired
     private ProjectService projectService;
+
+    @Autowired
+    private ProjectAssistantService projectAssistantService;
 
     @PostMapping
     public Project saveProject(@RequestBody Project project) {
@@ -50,6 +56,13 @@ public class ProjectController {
     @DeleteMapping("/{id}")
     public void deleteProject(@PathVariable String id) {
         projectService.deleteProject(id);
+    }
+
+    @PostMapping("/{projectId}/assistant/ask")
+    public Map<String, String> askAssistant(@PathVariable String projectId, @RequestBody Map<String, String> body) {
+        Map<String, String> response = new HashMap<>();
+        response.put("answer", projectAssistantService.askAboutProject(projectId, body.get("question")));
+        return response;
     }
 
     @GetMapping("/gantt-summary")

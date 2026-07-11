@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/projects/*/assignments").authenticated()
 
                 // Projects
+                .requestMatchers(HttpMethod.POST, "/projects/*/assistant/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
                 .requestMatchers(HttpMethod.GET, "/projects/**").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/projects/**").hasAuthority("ADMIN")
                 .requestMatchers("/projects/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
