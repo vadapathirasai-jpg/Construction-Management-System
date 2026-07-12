@@ -1,17 +1,28 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Button, Icon } from "../components/UI";
 import { useAppData } from "../context/AppData";
-import { roleOptions } from "../data";
 
-const blankForm = { name: "", email: "", password: "", confirmPassword: "", role: "" };
+const blankForm = { name: "", email: "", password: "", confirmPassword: "" };
 
 export default function Register() {
-  const navigate = useNavigate();
-  const { register } = useAppData();
+  const { register, resendVerification } = useAppData();
   const [form, setForm] = useState(blankForm);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendStatus, setResendStatus] = useState("");
+
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCountdown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCountdown]);
 
   const updateField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -20,8 +31,8 @@ export default function Register() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!form.name.trim() || !form.email.includes("@") || !form.role) {
-      return setError("Enter your name, email, and role.");
+    if (!form.name.trim() || !form.email.includes("@")) {
+      return setError("Enter your name and email.");
     }
     if (form.password.length < 6) {
       return setError("Password must be at least 6 characters.");
@@ -36,9 +47,23 @@ export default function Register() {
     setLoading(false);
 
     if (result.success) {
-      navigate("/login");
+      setRegisteredEmail(form.email);
     } else {
       setError(result.error);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!registeredEmail) return;
+    setResendLoading(true);
+    setResendStatus("");
+    const result = await resendVerification(registeredEmail);
+    setResendLoading(false);
+    if (result.success) {
+      setResendCountdown(60);
+      setResendStatus("Verification email resent successfully.");
+    } else {
+      setResendStatus(result.error || "Failed to resend verification email.");
     }
   };
 
@@ -58,10 +83,12 @@ export default function Register() {
         <div className="z-10 max-w-md">
           <p className="mb-2 text-xs font-bold uppercase tracking-widest text-safety-orange font-industry">CONSTRUCTION OPERATIONS HUB</p>
           <h1 className="text-4xl font-extrabold leading-tight text-white font-industry uppercase tracking-wide">
-            Create access for your project workspace.
+            {registeredEmail ? "Verify your credentials." : "Create access for your project workspace."}
           </h1>
           <p className="mt-5 text-sm leading-relaxed text-slate-300">
-            Register a role-based operator file to log daily progress checklists, audit material assets, dispatch teams, and inspect budgets.
+            {registeredEmail 
+              ? "Ensure your security clearance by authenticating your registered email address before logging in to the command hub."
+              : "Register a role-based operator file to log daily progress checklists, audit material assets, dispatch teams, and inspect budgets."}
           </p>
           <div className="mt-8 grid grid-cols-3 gap-3">
             {["PROJECTS", "WORKFORCE", "LEDGER"].map((item) => (
@@ -89,92 +116,131 @@ export default function Register() {
             </div>
           </div>
 
-          <h2 className="text-2xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">REGISTER CREW PASS</h2>
-          <p className="mt-1 text-xs font-medium text-blueprint-navy/60 uppercase tracking-wide">Create your role-based operations account.</p>
+          {registeredEmail ? (
+            <>
+              <h2 className="text-2xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">VERIFICATION SENT</h2>
+              <p className="mt-1 text-xs font-medium text-blueprint-navy/60 uppercase tracking-wide">Check your inbox to activate access.</p>
+              
+              <div className="mt-6 space-y-6">
+                <div className="flex flex-col gap-3 rounded-none border border-blueprint-navy/10 bg-[#F7F5F0] p-4 text-xs leading-relaxed text-blueprint-navy/80">
+                  <p>
+                    We have sent a verification link to <strong className="text-blueprint-navy font-bold">{registeredEmail}</strong>. 
+                    Please click the link in that email to activate your account.
+                  </p>
+                  <p className="text-[10px] text-blueprint-navy/60 italic border-t border-blueprint-navy/5 pt-2">
+                    Make sure to check your spam folder if you do not receive it in a few minutes.
+                  </p>
+                </div>
 
-          <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Full Name</label>
-              <input
-                className="form-control"
-                placeholder="Full Name"
-                value={form.name}
-                onChange={(e) => updateField("name", e.target.value)}
-                required
-              />
-            </div>
+                {resendStatus && (
+                  <div className={`flex items-center gap-2 rounded-none border px-4 py-2.5 text-xs font-bold ${
+                    resendStatus.includes("successfully") 
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700" 
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}>
+                    <Icon name={resendStatus.includes("successfully") ? "check" : "warning"} className="h-4 w-4 shrink-0" />
+                    <span>{resendStatus.toUpperCase()}</span>
+                  </div>
+                )}
 
-            <div>
-              <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Email Address</label>
-              <input
-                className="form-control"
-                type="email"
-                placeholder="you@buildtrack.com"
-                value={form.email}
-                onChange={(e) => updateField("email", e.target.value)}
-                required
-              />
-            </div>
+                <div className="space-y-3">
+                  <Button
+                    type="button"
+                    className="w-full rounded-none py-3"
+                    disabled={resendLoading || resendCountdown > 0}
+                    onClick={handleResend}
+                  >
+                    {resendLoading 
+                      ? "RESENDING..." 
+                      : resendCountdown > 0 
+                        ? `RESEND AVAILABLE IN ${resendCountdown}S` 
+                        : "RESEND VERIFICATION EMAIL"}
+                  </Button>
 
-            <div>
-              <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Role</label>
-              <select
-                className="form-control"
-                value={form.role}
-                onChange={(e) => updateField("role", e.target.value)}
-                required
-              >
-                <option value="">Select Role</option>
-                {roleOptions.map((role) => (
-                  <option key={role} value={role.split(" ").map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(" ")}>
-                    {role}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Password</label>
-                <input
-                  className="form-control"
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => updateField("password", e.target.value)}
-                  required
-                />
+                  <Link to="/login" className="block w-full">
+                    <Button variant="secondary" className="w-full rounded-none py-3">
+                      Return to Sign In
+                    </Button>
+                  </Link>
+                </div>
               </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Confirm</label>
-                <input
-                  className="form-control"
-                  type="password"
-                  value={form.confirmPassword}
-                  onChange={(e) => updateField("confirmPassword", e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">REGISTER CREW PASS</h2>
+              <p className="mt-1 text-xs font-medium text-blueprint-navy/60 uppercase tracking-wide">Create your role-based operations account.</p>
+              <p className="mt-2 text-xs font-semibold text-blueprint-navy/70 bg-[#F7F5F0] border border-blueprint-navy/10 p-3">
+                Your account starts with Site Engineer access. An administrator can upgrade your role after registration.
+              </p>
 
-            {error && (
-              <div className="flex items-center gap-2 rounded-none border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700">
-                <Icon name="warning" className="h-4 w-4 shrink-0" />
-                <span>{error.toUpperCase()}</span>
-              </div>
-            )}
+              <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Full Name</label>
+                  <input
+                    className="form-control"
+                    placeholder="Full Name"
+                    value={form.name}
+                    onChange={(e) => updateField("name", e.target.value)}
+                    required
+                  />
+                </div>
 
-            <Button
-              type="submit"
-              className="w-full rounded-none py-3 animate-pulse"
-              disabled={loading}
-            >
-              {loading ? "Creating Pass..." : "Submit Registration Pass"}
-            </Button>
-          </form>
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Email Address</label>
+                  <input
+                    className="form-control"
+                    type="email"
+                    placeholder="you@buildtrack.com"
+                    value={form.email}
+                    onChange={(e) => updateField("email", e.target.value)}
+                    required
+                  />
+                </div>
 
-          <p className="mt-5 text-center text-xs font-bold uppercase tracking-wider font-industry text-blueprint-navy/60">
-            Already registered? <Link className="text-safety-orange hover:text-[#d96b14] underline" to="/login">Sign in</Link>
-          </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Password</label>
+                    <input
+                      className="form-control"
+                      type="password"
+                      value={form.password}
+                      onChange={(e) => updateField("password", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Confirm</label>
+                    <input
+                      className="form-control"
+                      type="password"
+                      value={form.confirmPassword}
+                      onChange={(e) => updateField("confirmPassword", e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 rounded-none border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700">
+                    <Icon name="warning" className="h-4 w-4 shrink-0" />
+                    <span>{error.toUpperCase()}</span>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full rounded-none py-3 animate-pulse"
+                  disabled={loading}
+                >
+                  {loading ? "Creating Pass..." : "Submit Registration Pass"}
+                </Button>
+              </form>
+
+              <p className="mt-5 text-center text-xs font-bold uppercase tracking-wider font-industry text-blueprint-navy/60">
+                Already registered? <Link className="text-safety-orange hover:text-[#d96b14] underline" to="/login">Sign in</Link>
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

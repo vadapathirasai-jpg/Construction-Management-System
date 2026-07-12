@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -13,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -26,6 +29,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class ProjectAssistantService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProjectAssistantService.class);
 
     @Autowired
     private ProjectRepository projectRepository;
@@ -52,6 +57,11 @@ public class ProjectAssistantService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Question is required.");
         }
 
+        if (geminiApiKey == null || geminiApiKey.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "AI assistant is not configured. Set the GEMINI_API_KEY environment variable on the backend.");
+        }
+
         List<DailyReport> reports = dailyReportRepository.findByProjectId(projectId);
         reports.sort(Comparator.comparing(DailyReport::getDate, Comparator.nullsLast(Comparator.naturalOrder())));
 
@@ -70,7 +80,18 @@ public class ProjectAssistantService {
             return extractAnswer(response.getBody());
         } catch (ResponseStatusException ex) {
             throw ex;
+        } catch (HttpStatusCodeException ex) {
+            log.error("Gemini API call failed with status {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            String detail = switch (ex.getStatusCode().value()) {
+                case 400 -> "AI request was rejected (bad request). Check the backend logs for details.";
+                case 401, 403 -> "AI assistant rejected the API key (unauthorized). Check GEMINI_API_KEY is valid and has access to the Generative Language API.";
+                case 404 -> "AI model not found for this API key/endpoint. Check the configured Gemini model name.";
+                case 429 -> "AI assistant hit a rate limit or quota. Please try again shortly.";
+                default -> "AI assistant is temporarily unavailable, please try again.";
+            };
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, detail);
         } catch (Exception ex) {
+            log.error("Unexpected error calling Gemini API", ex);
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "AI assistant is temporarily unavailable, please try again.");
         }
@@ -138,6 +159,7 @@ public class ProjectAssistantService {
             JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
 
             if (!textNode.isTextual() || textNode.asText().isBlank()) {
+                log.error("Gemini response had no usable text. Raw response: {}", responseBody);
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                         "AI assistant is temporarily unavailable, please try again.");
             }
@@ -146,6 +168,7 @@ public class ProjectAssistantService {
         } catch (ResponseStatusException ex) {
             throw ex;
         } catch (Exception ex) {
+            log.error("Failed to parse Gemini response. Raw response: {}", responseBody, ex);
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "AI assistant is temporarily unavailable, please try again.");
         }

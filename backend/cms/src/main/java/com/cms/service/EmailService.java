@@ -1,15 +1,19 @@
 package com.cms.service;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EmailService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
     @Autowired
     private JavaMailSender mailSender;
@@ -17,24 +21,29 @@ public class EmailService {
     @Value("${app.verification.base-url}")
     private String baseUrl;
 
-    public void sendVerificationEmail(String toEmail, String userName, String token) throws MessagingException, java.io.UnsupportedEncodingException  {
-        String verificationUrl = baseUrl + "?token=" + token;
+    @Async
+    public void sendVerificationEmail(String toEmail, String userName, String token) {
+        try {
+            String verificationUrl = baseUrl + "?token=" + token;
 
-        MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-        helper.setFrom("24csb47@karpagamtech.ac.in", "BuildTrack");  
-        helper.setTo(toEmail);
-        helper.setSubject("Verify Your BuildTrack Account");
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom("24csb47@karpagamtech.ac.in", "BuildTrack");  
+            helper.setTo(toEmail);
+            helper.setSubject("Verify Your BuildTrack Account");
 
-        String htmlContent = "<h3>Welcome to BuildTrack, " + userName + "!</h3>"
-                + "<p>Thank you for registering. Please verify your account by clicking the link below:</p>"
-                + "<p><a href=\"" + verificationUrl + "\" style=\"display: inline-block; padding: 10px 20px; color: white; background-color: #0284c7; text-decoration: none; border-radius: 5px; font-weight: bold;\">Verify Account</a></p>"
-                + "<br/>"
-                + "<p>If the button doesn't work, copy and paste this link into your browser:</p>"
-                + "<p>" + verificationUrl + "</p>"
-                + "<p>Note: This link will expire in 24 hours.</p>";
+            String htmlContent = "<h3>Welcome to BuildTrack, " + userName + "!</h3>"
+                    + "<p>Thank you for registering. Please verify your account by clicking the link below:</p>"
+                    + "<p><a href=\"" + verificationUrl + "\" style=\"display: inline-block; padding: 10px 20px; color: white; background-color: #0284c7; text-decoration: none; border-radius: 5px; font-weight: bold;\">Verify Account</a></p>"
+                    + "<br/>"
+                    + "<p>If the button doesn't work, copy and paste this link into your browser:</p>"
+                    + "<p>" + verificationUrl + "</p>"
+                    + "<p>Note: This link will expire in 24 hours.</p>";
 
-        helper.setText(htmlContent, true);
-        mailSender.send(message);
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            log.error("Failed to send verification email for user: {}, email: {}", userName, toEmail, e);
+        }
     }
 }

@@ -31,8 +31,17 @@ export default function Verify() {
           setStatus("success");
           setMessage(text || "Your account has been verified! You can now log in.");
         } else {
+          let errMsg = text || "This verification link is invalid or has expired.";
+          if (text && text.trim().startsWith("{")) {
+            try {
+              const parsed = JSON.parse(text);
+              errMsg = parsed.message || parsed.error || errMsg;
+            } catch (e) {
+              // ignore and keep raw text
+            }
+          }
           setStatus("error");
-          setMessage(text || "This verification link is invalid or has expired.");
+          setMessage(errMsg);
         }
       } catch (err) {
         if (!active) return;

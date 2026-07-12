@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.cms.entity.User;
 import com.cms.entity.Project;
@@ -79,8 +80,23 @@ public class UserController {
 
     @GetMapping("/verify")
     public ResponseEntity<String> verifyUser(@RequestParam String token) {
-        String result = userService.verifyUser(token);
-        return ResponseEntity.ok(result);
+        try {
+            String result = userService.verifyUser(token);
+            return ResponseEntity.ok(result);
+        } catch (ResponseStatusException ex) {
+            return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Verification failed. Please try again.");
+        }
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerification(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        userService.resendVerification(email);
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "If an account with this email exists and is not yet verified, a new verification email has been sent.");
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping

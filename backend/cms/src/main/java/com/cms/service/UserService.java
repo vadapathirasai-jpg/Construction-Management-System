@@ -3,6 +3,9 @@ package com.cms.service;
 import java.util.List;
 import java.util.UUID;
 import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,6 +18,8 @@ import com.cms.repository.UserRepository;
 @Service
 public class UserService {
 
+    private final ConcurrentHashMap<String, Instant> resendRateLimits = new ConcurrentHashMap<>();
+
     @Autowired
     private UserRepository userRepository;
 
@@ -25,6 +30,12 @@ public class UserService {
     private EmailService emailService;
 
     public User saveUser(User user) {
+        if (userRepository.count() == 0) {
+            user.setRole("ADMIN");
+        } else if (!isCallerAuthenticatedAdmin()) {
+            user.setRole("SITE ENGINEER");
+        }
+
     	//check name not empty
         if (user.getName() == null || user.getName().trim().isEmpty()) {
             throw new IllegalArgumentException("Name is required.");
@@ -143,16 +154,52 @@ public class UserService {
         User user = userRepository.findByVerificationToken(token)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification link."));
 
+        if ("Active".equalsIgnoreCase(user.getStatus())) {
+            return "Your account is already verified. You can log in now.";
+        }
+
         if (user.getTokenExpiry() == null || user.getTokenExpiry().isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Verification link has expired.");
         }
 
         user.setStatus("Active");
-        user.setVerificationToken(null);
-        user.setTokenExpiry(null);
         userRepository.save(user);
 
         return "Account verified successfully. You can now login.";
+    }
+
+    public void resendVerification(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required.");
+        }
+        String normalizedEmail = email.trim().toLowerCase();
+        Instant now = Instant.now();
+
+        // Prevent memory leak by removing expired rate limit entries inline
+        resendRateLimits.entrySet().removeIf(entry -> Duration.between(entry.getValue(), now).getSeconds() > 60);
+
+        Instant lastSent = resendRateLimits.get(normalizedEmail);
+        if (lastSent != null && Duration.between(lastSent, now).getSeconds() < 60) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Please wait before requesting another verification email.");
+        }
+
+        resendRateLimits.put(normalizedEmail, now);
+
+        User user = userRepository.findByEmail(normalizedEmail).orElse(null);
+        if (user == null) {
+            return;
+        }
+
+        if (!"Pending".equalsIgnoreCase(user.getStatus())) {
+            return;
+        }
+
+        String token = UUID.randomUUID().toString();
+        user.setVerificationToken(token);
+        user.setTokenExpiry(LocalDateTime.now().plusHours(24));
+        userRepository.save(user);
+
+        emailService.sendVerificationEmail(user.getEmail(), user.getName(), token);
     }
 
     private String generateUserId() {
@@ -161,5 +208,16 @@ public class UserService {
             id = "USR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         } while (userRepository.existsById(id));
         return id;
+    }
+
+    private boolean isCallerAuthenticatedAdmin() {
+        org.springframework.security.core.Authentication authentication = 
+            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .anyMatch(role -> "ADMIN".equalsIgnoreCase(role));
     }
 }

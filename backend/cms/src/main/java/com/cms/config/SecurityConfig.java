@@ -35,6 +35,7 @@ public class SecurityConfig {
                 .requestMatchers("/users/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/users").permitAll()
                 .requestMatchers("/users/verify").permitAll()
+                .requestMatchers("/users/resend-verification").permitAll()
                 .requestMatchers("/error").permitAll()
                 
                 .requestMatchers(HttpMethod.GET, "/users/*/projects").authenticated()

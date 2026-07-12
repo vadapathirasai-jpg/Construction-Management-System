@@ -10,6 +10,6 @@ test("redirects unauthenticated dashboard visits to login", () => {
     </MemoryRouter>
   );
 
-  expect(screen.getByRole("heading", { name: /Sign In/ })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /SECURE ENTRY/i })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Login to dashboard/ })).toBeInTheDocument();
 });

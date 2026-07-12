@@ -304,7 +304,7 @@ export function AppDataProvider({ children }) {
       const response = await fetch(`${API_BASE}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...user, status: "Active" }),
+        body: JSON.stringify({ ...user, status: "Pending" }),
       });
       if (response.ok) {
         return { success: true };
@@ -314,6 +314,26 @@ export function AppDataProvider({ children }) {
     } catch (err) {
       console.error("Registration error:", err);
       return { success: false, error: "Registration server is unreachable." };
+    }
+  };
+
+  const resendVerification = async (email) => {
+    try {
+      const response = await fetch(`${API_BASE}/users/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}));
+        return { success: true, message: data.message || "Verification email has been sent." };
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        return { success: false, error: errData.message || errData.error || "Failed to resend verification email." };
+      }
+    } catch (err) {
+      console.error("Resend verification error:", err);
+      return { success: false, error: "Authentication server is unreachable." };
     }
   };
 
@@ -346,7 +366,7 @@ export function AppDataProvider({ children }) {
   const filteredExpenses = currentUser?.role === "Admin" ? expenses : expenses.filter((e) => accessibleProjectNames.has(e.project?.name || e.project));
   const filteredDailyReports = currentUser?.role === "Admin" ? dailyReports : dailyReports.filter((r) => accessibleProjectIds.has(r.projectId));
 
-return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE }}>{children}</AppDataContext.Provider>;}
+return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, resendVerification, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE }}>{children}</AppDataContext.Provider>;}
 
 export const useAppData = () => useContext(AppDataContext);
 
