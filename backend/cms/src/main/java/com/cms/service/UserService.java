@@ -74,18 +74,18 @@ public class UserService {
         //encode the password
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         
-        // Generate and set verification token/expiry
-        String token = UUID.randomUUID().toString();
-        user.setVerificationToken(token);
-        user.setTokenExpiry(LocalDateTime.now().plusHours(24));
+        // Generate and set 6-digit OTP code
+        String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        user.setVerificationToken(otp);
+        user.setTokenExpiry(LocalDateTime.now().plusMinutes(15));
         
         User savedUser = userRepository.save(user);
         
         // Asynchronously/safely call email service so it doesn't fail registration
         try {
-            emailService.sendVerificationEmail(savedUser.getEmail(), savedUser.getName(), token);
+            emailService.sendVerificationOtp(savedUser.getEmail(), savedUser.getName(), otp);
         } catch (Exception ex) {
-            System.err.println("Failed to send verification email for " + savedUser.getEmail() + ": " + ex.getMessage());
+            // Handled inside EmailService
         }
         
         return savedUser;
@@ -100,8 +100,9 @@ public class UserService {
     }
 
     public User updateUser(User user) {
-    	
         User existing = userRepository.findById(user.getId()).orElse(null);
+        String previousRole = existing != null ? existing.getRole() : null;
+
         // if true
         if (existing != null) {
         	//no password
@@ -124,9 +125,18 @@ public class UserService {
             }
         }
         
-        
         normalizeUserRole(user);
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        if (existing != null && previousRole != null && !previousRole.equalsIgnoreCase(savedUser.getRole())) {
+            try {
+                emailService.sendRoleUpdatedEmail(savedUser.getEmail(), savedUser.getName(), savedUser.getRole());
+            } catch (Exception ex) {
+                System.err.println("Failed to send role update email for " + savedUser.getEmail() + ": " + ex.getMessage());
+            }
+        }
+
+        return savedUser;
     }
 
     public void deleteUser(String id) {
@@ -150,16 +160,24 @@ public class UserService {
         }
     }
 
-    public String verifyUser(String token) {
-        User user = userRepository.findByVerificationToken(token)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification link."));
+    public String verifyUser(String email, String otp) {
+        if (email == null || email.trim().isEmpty() || otp == null || otp.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email and OTP are required.");
+        }
+        String normalizedEmail = email.trim().toLowerCase();
+        User user = userRepository.findByEmail(normalizedEmail)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification request."));
 
         if ("Active".equalsIgnoreCase(user.getStatus())) {
             return "Your account is already verified. You can log in now.";
         }
 
+        if (user.getVerificationToken() == null || !user.getVerificationToken().equals(otp.trim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid OTP code.");
+        }
+
         if (user.getTokenExpiry() == null || user.getTokenExpiry().isBefore(LocalDateTime.now())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Verification link has expired.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OTP code has expired.");
         }
 
         user.setStatus("Active");
@@ -194,12 +212,12 @@ public class UserService {
             return;
         }
 
-        String token = UUID.randomUUID().toString();
-        user.setVerificationToken(token);
-        user.setTokenExpiry(LocalDateTime.now().plusHours(24));
+        String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        user.setVerificationToken(otp);
+        user.setTokenExpiry(LocalDateTime.now().plusMinutes(15));
         userRepository.save(user);
 
-        emailService.sendVerificationEmail(user.getEmail(), user.getName(), token);
+        emailService.sendVerificationOtp(user.getEmail(), user.getName(), otp);
     }
 
     private String generateUserId() {

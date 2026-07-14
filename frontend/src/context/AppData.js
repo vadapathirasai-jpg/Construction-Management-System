@@ -106,7 +106,7 @@ export function AppDataProvider({ children }) {
         }
       }))).filter(Boolean);
 
-      if (currentUser?.role === "Admin") {
+      if (currentUser?.role === "Admin" || currentUser?.role === "Project Manager") {
         try {
           const list = await readCollection("users");
           const normalized = list.map((u) => ({
@@ -337,9 +337,40 @@ export function AppDataProvider({ children }) {
     }
   };
 
+  const verifyUser = async (email, otp) => {
+    try {
+      const response = await fetch(`${API_BASE}/users/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+      const text = await response.text();
+      if (response.ok) {
+        let msg = "Account verified successfully. You can now login.";
+        try {
+          const parsed = JSON.parse(text);
+          msg = parsed.message || msg;
+        } catch (e) {}
+        return { success: true, message: msg };
+      } else {
+        let errMsg = text || "Verification failed.";
+        if (text && text.trim().startsWith("{")) {
+          try {
+            const parsed = JSON.parse(text);
+            errMsg = parsed.message || parsed.error || errMsg;
+          } catch (e) {}
+        }
+        return { success: false, error: errMsg };
+      }
+    } catch (err) {
+      console.error("Verification error:", err);
+      return { success: false, error: "Verification server is unreachable." };
+    }
+  };
+
   const permissions = {
     Admin: ["manageUsers", "createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "delete", "viewWorkers", "viewMaterials"],
-    "Project Manager": ["createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials"],
+    "Project Manager": ["manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials"],
     "Site Engineer": ["viewReports", "dailyReport", "viewWorkers", "viewMaterials"],
     Accountant: ["manageExpenses", "viewReports"],
   };
@@ -366,7 +397,7 @@ export function AppDataProvider({ children }) {
   const filteredExpenses = currentUser?.role === "Admin" ? expenses : expenses.filter((e) => accessibleProjectNames.has(e.project?.name || e.project));
   const filteredDailyReports = currentUser?.role === "Admin" ? dailyReports : dailyReports.filter((r) => accessibleProjectIds.has(r.projectId));
 
-return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, resendVerification, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE }}>{children}</AppDataContext.Provider>;}
+return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, resendVerification, verifyUser, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE }}>{children}</AppDataContext.Provider>;}
 
 export const useAppData = () => useContext(AppDataContext);
 

@@ -6,7 +6,7 @@ import { useAppData } from "../context/AppData";
 const blankForm = { name: "", email: "", password: "", confirmPassword: "" };
 
 export default function Register() {
-  const { register, resendVerification } = useAppData();
+  const { register, resendVerification, verifyUser } = useAppData();
   const [form, setForm] = useState(blankForm);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,6 +15,11 @@ export default function Register() {
   const [resendCountdown, setResendCountdown] = useState(0);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendStatus, setResendStatus] = useState("");
+
+  const [otp, setOtp] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const [verifySuccess, setVerifySuccess] = useState(false);
 
   useEffect(() => {
     if (resendCountdown <= 0) return;
@@ -48,6 +53,9 @@ export default function Register() {
 
     if (result.success) {
       setRegisteredEmail(form.email);
+      setOtp("");
+      setVerifyError("");
+      setVerifySuccess(false);
     } else {
       setError(result.error);
     }
@@ -61,9 +69,25 @@ export default function Register() {
     setResendLoading(false);
     if (result.success) {
       setResendCountdown(60);
-      setResendStatus("Verification email resent successfully.");
+      setResendStatus("Verification code resent successfully.");
     } else {
       setResendStatus(result.error || "Failed to resend verification email.");
+    }
+  };
+
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    if (otp.trim().length !== 6) {
+      return setVerifyError("Please enter a valid 6-digit OTP code.");
+    }
+    setVerifyLoading(true);
+    setVerifyError("");
+    const result = await verifyUser(registeredEmail, otp);
+    setVerifyLoading(false);
+    if (result.success) {
+      setVerifySuccess(true);
+    } else {
+      setVerifyError(result.error);
     }
   };
 
@@ -117,54 +141,98 @@ export default function Register() {
           </div>
 
           {registeredEmail ? (
-            <>
-              <h2 className="text-2xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">VERIFICATION SENT</h2>
-              <p className="mt-1 text-xs font-medium text-blueprint-navy/60 uppercase tracking-wide">Check your inbox to activate access.</p>
-              
-              <div className="mt-6 space-y-6">
-                <div className="flex flex-col gap-3 rounded-none border border-blueprint-navy/10 bg-[#F7F5F0] p-4 text-xs leading-relaxed text-blueprint-navy/80">
-                  <p>
-                    We have sent a verification link to <strong className="text-blueprint-navy font-bold">{registeredEmail}</strong>. 
-                    Please click the link in that email to activate your account.
-                  </p>
-                  <p className="text-[10px] text-blueprint-navy/60 italic border-t border-blueprint-navy/5 pt-2">
-                    Make sure to check your spam folder if you do not receive it in a few minutes.
-                  </p>
-                </div>
-
-                {resendStatus && (
-                  <div className={`flex items-center gap-2 rounded-none border px-4 py-2.5 text-xs font-bold ${
-                    resendStatus.includes("successfully") 
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700" 
-                      : "border-red-200 bg-red-50 text-red-700"
-                  }`}>
-                    <Icon name={resendStatus.includes("successfully") ? "check" : "warning"} className="h-4 w-4 shrink-0" />
-                    <span>{resendStatus.toUpperCase()}</span>
+            verifySuccess ? (
+              <>
+                <h2 className="text-2xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">ACCOUNT VERIFIED</h2>
+                <p className="mt-1 text-xs font-medium text-blueprint-navy/60 uppercase tracking-wide">Verification successful.</p>
+                
+                <div className="mt-6 space-y-6">
+                  <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center border border-emerald-200 bg-emerald-50 text-emerald-600">
+                    <Icon name="check" className="h-7 w-7" />
                   </div>
-                )}
-
-                <div className="space-y-3">
-                  <Button
-                    type="button"
-                    className="w-full rounded-none py-3"
-                    disabled={resendLoading || resendCountdown > 0}
-                    onClick={handleResend}
-                  >
-                    {resendLoading 
-                      ? "RESENDING..." 
-                      : resendCountdown > 0 
-                        ? `RESEND AVAILABLE IN ${resendCountdown}S` 
-                        : "RESEND VERIFICATION EMAIL"}
-                  </Button>
-
+                  <div className="rounded-none border border-emerald-100 bg-emerald-50/50 p-4 text-center text-xs font-bold text-emerald-800 uppercase tracking-wide">
+                    Your credentials have been authenticated. You can now access your control console.
+                  </div>
                   <Link to="/login" className="block w-full">
-                    <Button variant="secondary" className="w-full rounded-none py-3">
-                      Return to Sign In
+                    <Button className="w-full rounded-none py-3">
+                      Go to Login
                     </Button>
                   </Link>
                 </div>
-              </div>
-            </>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">ENTER OTP CODE</h2>
+                <p className="mt-1 text-xs font-medium text-blueprint-navy/60 uppercase tracking-wide">Enter the 6-digit verification code sent to {registeredEmail}.</p>
+                
+                <div className="mt-6 space-y-6">
+                  <form onSubmit={handleVerify} className="space-y-4">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">6-Digit Verification Code</label>
+                      <input
+                        className="form-control text-center text-lg font-mono tracking-[10px] uppercase"
+                        maxLength={6}
+                        placeholder="000000"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                        required
+                        disabled={verifyLoading}
+                      />
+                    </div>
+
+                    {verifyError && (
+                      <div className="flex items-center gap-2 rounded-none border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700 uppercase">
+                        <Icon name="warning" className="h-4 w-4 shrink-0" />
+                        <span>{verifyError}</span>
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      className="w-full rounded-none py-3"
+                      disabled={verifyLoading || otp.length !== 6}
+                    >
+                      {verifyLoading ? "VERIFYING CODE..." : "VERIFY CODE"}
+                    </Button>
+                  </form>
+
+                  <div className="border-t border-blueprint-navy/10 pt-4 space-y-4">
+                    {resendStatus && (
+                      <div className={`flex items-center gap-2 rounded-none border px-4 py-2.5 text-xs font-bold uppercase ${
+                        resendStatus.includes("successfully") 
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700" 
+                          : "border-red-200 bg-red-50 text-red-700"
+                      }`}>
+                        <Icon name={resendStatus.includes("successfully") ? "check" : "warning"} className="h-4 w-4 shrink-0" />
+                        <span>{resendStatus}</span>
+                      </div>
+                    )}
+
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full rounded-none py-3"
+                      disabled={resendLoading || resendCountdown > 0}
+                      onClick={handleResend}
+                    >
+                      {resendLoading 
+                        ? "RESENDING..." 
+                        : resendCountdown > 0 
+                          ? `RESEND AVAILABLE IN ${resendCountdown}S` 
+                          : "RESEND OTP CODE"}
+                    </Button>
+
+                    <button
+                      type="button"
+                      onClick={() => setRegisteredEmail("")}
+                      className="block w-full text-center text-[10px] font-bold uppercase tracking-wider text-blueprint-navy/60 hover:text-blueprint-navy underline font-industry"
+                    >
+                      Back to registration
+                    </button>
+                  </div>
+                </div>
+              </>
+            )
           ) : (
             <>
               <h2 className="text-2xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">REGISTER CREW PASS</h2>

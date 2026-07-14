@@ -15,6 +15,7 @@ import com.cms.entity.Project;
 import com.cms.entity.User;
 import com.cms.service.ProjectAssistantService;
 import com.cms.service.ProjectService;
+import com.cms.service.WeeklySummaryScheduler;
 
 @RestController
 @RequestMapping("/projects")
@@ -26,6 +27,17 @@ public class ProjectController {
 
     @Autowired
     private ProjectAssistantService projectAssistantService;
+
+    @Autowired
+    private WeeklySummaryScheduler weeklySummaryScheduler;
+
+    @GetMapping("/test-weekly-summary")
+    public org.springframework.http.ResponseEntity<?> testWeeklySummary() {
+        weeklySummaryScheduler.runWeeklySummaryJob();
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Weekly summary job triggered successfully!");
+        return org.springframework.http.ResponseEntity.ok(response);
+    }
 
     @PostMapping
     public Project saveProject(@RequestBody Project project) {
@@ -59,10 +71,20 @@ public class ProjectController {
     }
 
     @PostMapping("/{projectId}/assistant/ask")
-    public Map<String, String> askAssistant(@PathVariable String projectId, @RequestBody Map<String, String> body) {
-        Map<String, String> response = new HashMap<>();
-        response.put("answer", projectAssistantService.askAboutProject(projectId, body.get("question")));
-        return response;
+    public org.springframework.http.ResponseEntity<?> askAssistant(@PathVariable String projectId, @RequestBody Map<String, String> body) {
+        try {
+            Map<String, String> response = new HashMap<>();
+            response.put("answer", projectAssistantService.askAboutProject(projectId, body.get("question")));
+            return org.springframework.http.ResponseEntity.ok(response);
+        } catch (org.springframework.web.server.ResponseStatusException ex) {
+            Map<String, String> response = new HashMap<>();
+            response.put("error", ex.getReason());
+            return org.springframework.http.ResponseEntity.status(ex.getStatusCode()).body(response);
+        } catch (Exception ex) {
+            Map<String, String> response = new HashMap<>();
+            response.put("error", "AI assistant is temporarily unavailable, please try again.");
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     @GetMapping("/gantt-summary")

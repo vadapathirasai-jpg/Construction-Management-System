@@ -1,44 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Icon } from "../components/UI";
 import { useAppData } from "../context/AppData";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, resendVerification } = useAppData();
+  const { login } = useAppData();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const [resendCountdown, setResendCountdown] = useState(0);
-  const [resendLoading, setResendLoading] = useState(false);
-  const [resendStatus, setResendStatus] = useState("");
-
-  useEffect(() => {
-    if (resendCountdown <= 0) return;
-    const timer = setInterval(() => {
-      setResendCountdown((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [resendCountdown]);
-
-  const handleResend = async () => {
-    if (!email.trim()) {
-      return setError("Please enter your email address to resend verification.");
-    }
-    setResendLoading(true);
-    setResendStatus("");
-    const result = await resendVerification(email);
-    setResendLoading(false);
-    if (result.success) {
-      setResendCountdown(60);
-      setResendStatus("Verification email sent!");
-    } else {
-      setResendStatus(result.error || "Failed to resend.");
-    }
-  };
 
   const demoAccounts = [
     { role: "Admin", email: "admin@buildtrack.com", password: "admin123", color: "border-blueprint-navy/30 bg-blueprint-navy/5 text-blueprint-navy hover:bg-blueprint-navy/10" },
@@ -153,20 +125,12 @@ export default function Login() {
                 </div>
                 {error.toLowerCase().includes("disabled") && (
                   <div className="mt-1 border-t border-red-200 pt-2 flex items-center justify-between text-[10px] font-industry tracking-wider">
-                    {resendCountdown > 0 ? (
-                      <span className="text-red-500 uppercase">RESEND AVAILABLE IN {resendCountdown}S</span>
-                    ) : resendStatus ? (
-                      <span className="text-emerald-700 uppercase">{resendStatus}</span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleResend}
-                        disabled={resendLoading}
-                        className="text-safety-orange hover:text-[#d96b14] underline uppercase font-extrabold"
-                      >
-                        {resendLoading ? "SENDING..." : "RESEND VERIFICATION EMAIL"}
-                      </button>
-                    )}
+                    <Link
+                      to={`/verify?email=${encodeURIComponent(email)}`}
+                      className="text-safety-orange hover:text-[#d96b14] underline uppercase font-extrabold"
+                    >
+                      Verify Account / Enter OTP
+                    </Link>
                   </div>
                 )}
               </div>

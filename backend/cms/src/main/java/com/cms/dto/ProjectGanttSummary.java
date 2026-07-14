@@ -24,13 +24,15 @@ public class ProjectGanttSummary {
     private String materialsStatus;
     private Boolean isMaterialRisk;
     private List<String> lowStockMaterials;
+    private String budgetPredictionMessage;
 
     public ProjectGanttSummary() {}
 
     public ProjectGanttSummary(String id, String name, String client, String location, LocalDate start, LocalDate end,
                                int progress, String stage, String status, Integer reportedProgress, String progressSource,
                                Double budget, Double spent, Integer budgetUsedPercent, Boolean isBudgetOverrunRisk,
-                               String materialsStatus, Boolean isMaterialRisk, List<String> lowStockMaterials) {
+                               String materialsStatus, Boolean isMaterialRisk, List<String> lowStockMaterials,
+                               String budgetPredictionMessage) {
         this.id = id;
         this.name = name;
         this.client = client;
@@ -49,6 +51,7 @@ public class ProjectGanttSummary {
         this.materialsStatus = materialsStatus;
         this.isMaterialRisk = isMaterialRisk;
         this.lowStockMaterials = lowStockMaterials;
+        this.budgetPredictionMessage = budgetPredictionMessage;
     }
 
     public String getId() {
@@ -193,5 +196,13 @@ public class ProjectGanttSummary {
 
     public void setLowStockMaterials(List<String> lowStockMaterials) {
         this.lowStockMaterials = lowStockMaterials;
+    }
+
+    public String getBudgetPredictionMessage() {
+        return budgetPredictionMessage;
+    }
+
+    public void setBudgetPredictionMessage(String budgetPredictionMessage) {
+        this.budgetPredictionMessage = budgetPredictionMessage;
     }
 }

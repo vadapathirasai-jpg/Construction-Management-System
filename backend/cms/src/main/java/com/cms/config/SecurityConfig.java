@@ -41,6 +41,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/users/*/projects").authenticated()
 
                 // Users administration
+                .requestMatchers(HttpMethod.GET, "/users").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
                 .requestMatchers("/users/**").hasAuthority("ADMIN")
                 
                 // Attendance
@@ -49,8 +50,8 @@ public class SecurityConfig {
                 .requestMatchers("/attendance/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER", "SITE ENGINEER")
                 
                 // Project Assignments
-                .requestMatchers(HttpMethod.POST, "/projects/*/assignments").hasAuthority("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/projects/*/assignments/**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/projects/*/assignments").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
+                .requestMatchers(HttpMethod.DELETE, "/projects/*/assignments/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
                 .requestMatchers(HttpMethod.GET, "/projects/*/assignments").authenticated()
 
                 // Projects

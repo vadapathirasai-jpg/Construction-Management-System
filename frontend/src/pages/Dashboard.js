@@ -45,6 +45,7 @@ const rolePresentation = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [activeAssignmentProject, setActiveAssignmentProject] = useState(null);
   const {
     accessibleProjects: projects,
     projectScope,
@@ -231,6 +232,7 @@ export default function Dashboard() {
           navigate={navigate}
           workers={workers}
           expenses={expenses}
+          onManageTeam={setActiveAssignmentProject}
         />
       )}
       {role === "Project Manager" && (
@@ -239,6 +241,7 @@ export default function Dashboard() {
           workers={workers}
           expenses={expenses}
           navigate={navigate}
+          onManageTeam={setActiveAssignmentProject}
         />
       )}
       {role === "Site Engineer" && (
@@ -254,6 +257,14 @@ export default function Dashboard() {
           projects={projects}
           expenses={expenses}
           navigate={navigate}
+        />
+      )}
+
+      {/* Project Assignment Dialog */}
+      {activeAssignmentProject && (
+        <ProjectAssignmentPanel
+          project={activeAssignmentProject}
+          onClose={() => setActiveAssignmentProject(null)}
         />
       )}
     </>
@@ -385,9 +396,8 @@ function EditUserModal({ user, onClose, onSave }) {
   );
 }
 
-function AdminWorkspace({ projects, lowStock, pendingExpenses, navigate, workers, expenses }) {
+function AdminWorkspace({ projects, lowStock, pendingExpenses, navigate, workers, expenses, onManageTeam }) {
   const { users, update, remove, currentUser } = useAppData();
-  const [activeAssignmentProject, setActiveAssignmentProject] = useState(null);
   const [activeEditUser, setActiveEditUser] = useState(null);
   const [actionError, setActionError] = useState("");
 
@@ -515,7 +525,7 @@ function AdminWorkspace({ projects, lowStock, pendingExpenses, navigate, workers
                       <Button
                         variant="secondary"
                         className="h-8 min-h-0 px-3 text-[10px] rounded-none border-blueprint-navy/20"
-                        onClick={() => setActiveAssignmentProject(project)}
+                        onClick={() => onManageTeam(project)}
                       >
                         Team
                       </Button>
@@ -621,13 +631,7 @@ function AdminWorkspace({ projects, lowStock, pendingExpenses, navigate, workers
         )}
       </Card>
 
-      {/* Project Assignment Dialog */}
-      {activeAssignmentProject && (
-        <ProjectAssignmentPanel
-          project={activeAssignmentProject}
-          onClose={() => setActiveAssignmentProject(null)}
-        />
-      )}
+
 
       {/* User Editing Dialog */}
       {activeEditUser && (
@@ -641,7 +645,7 @@ function AdminWorkspace({ projects, lowStock, pendingExpenses, navigate, workers
   );
 }
 
-function ManagerWorkspace({ projects, workers, expenses, navigate }) {
+function ManagerWorkspace({ projects, workers, expenses, navigate, onManageTeam }) {
   const getBudgetUsedPercent = (project) => {
     const projectExpenses = expenses.filter(
       (e) =>
@@ -706,6 +710,18 @@ function ManagerWorkspace({ projects, workers, expenses, navigate }) {
                       {formatCurrency(project.budget)}
                     </p>
                   </div>
+                </div>
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    variant="secondary"
+                    className="h-8 min-h-0 px-3 text-[10px] rounded-none border-blueprint-navy/20"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onManageTeam(project);
+                    }}
+                  >
+                    Manage Team
+                  </Button>
                 </div>
               </div>
             </Card>

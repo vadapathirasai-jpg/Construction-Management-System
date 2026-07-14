@@ -1,61 +1,71 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Icon } from "../components/UI";
-
-const API_BASE = "http://localhost:8081";
+import { useAppData } from "../context/AppData";
 
 export default function Verify() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
+  const initialEmail = searchParams.get("email") || "";
 
-  const [status, setStatus] = useState(() => (token ? "loading" : "error"));
-  const [message, setMessage] = useState(() => (token ? "" : "No verification token found."));
+  const { verifyUser, resendVerification } = useAppData();
+
+  const [email, setEmail] = useState(initialEmail);
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("idle"); // 'idle', 'success', 'error'
+  const [message, setMessage] = useState("");
+
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendStatus, setResendStatus] = useState("");
 
   useEffect(() => {
-    if (!token) {
+    if (resendCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCountdown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCountdown]);
+
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    if (!email.trim() || otp.trim().length !== 6) {
       setStatus("error");
-      setMessage("No verification token found.");
+      setMessage("Please enter a valid email and 6-digit OTP code.");
       return;
     }
+    setLoading(true);
+    setStatus("idle");
+    setMessage("");
+    const result = await verifyUser(email, otp);
+    setLoading(false);
+    if (result.success) {
+      setStatus("success");
+      setMessage(result.message || "Your account has been verified! You can now log in.");
+    } else {
+      setStatus("error");
+      setMessage(result.error || "This verification code is invalid or has expired.");
+    }
+  };
 
-    let active = true;
-
-    const verify = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/users/verify?token=${encodeURIComponent(token)}`);
-        const text = await response.text();
-        if (!active) return;
-
-        if (response.ok) {
-          setStatus("success");
-          setMessage(text || "Your account has been verified! You can now log in.");
-        } else {
-          let errMsg = text || "This verification link is invalid or has expired.";
-          if (text && text.trim().startsWith("{")) {
-            try {
-              const parsed = JSON.parse(text);
-              errMsg = parsed.message || parsed.error || errMsg;
-            } catch (e) {
-              // ignore and keep raw text
-            }
-          }
-          setStatus("error");
-          setMessage(errMsg);
-        }
-      } catch (err) {
-        if (!active) return;
-        setStatus("error");
-        setMessage("A network error occurred. Please check your connection and try again.");
-      }
-    };
-
-    verify();
-
-    return () => {
-      active = false;
-    };
-  }, [token]);
+  const handleResend = async () => {
+    if (!email.trim()) {
+      setStatus("error");
+      setMessage("Please enter your email address to resend the code.");
+      return;
+    }
+    setResendLoading(true);
+    setResendStatus("");
+    const result = await resendVerification(email);
+    setResendLoading(false);
+    if (result.success) {
+      setResendCountdown(60);
+      setResendStatus("Verification code resent successfully.");
+    } else {
+      setResendStatus(result.error || "Failed to resend verification code.");
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F7F5F0] p-6 sm:p-10 font-sans relative">
@@ -69,17 +79,7 @@ export default function Verify() {
           <span className="text-xl font-bold font-industry uppercase tracking-widest">BuildTrack</span>
         </div>
 
-        {status === "loading" && (
-          <div className="py-6 text-center">
-            <div className="mb-5 flex justify-center">
-              <span className="h-8 w-8 animate-spin border-2 border-blueprint-navy/20 border-t-safety-orange" />
-            </div>
-            <h2 className="text-xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">Verifying Account</h2>
-            <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-blueprint-navy/60">Verifying credential signatures...</p>
-          </div>
-        )}
-
-        {status === "success" && (
+        {status === "success" ? (
           <div className="py-4 text-center">
             <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center border border-emerald-200 bg-emerald-50 text-emerald-600">
               <Icon name="check" className="h-7 w-7" />
@@ -95,28 +95,90 @@ export default function Verify() {
               </Button>
             </div>
           </div>
-        )}
+        ) : (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">Verify Credentials</h2>
+              <p className="mt-1 text-xs font-medium text-blueprint-navy/60 uppercase tracking-wide">Enter your email and the 6-digit OTP code.</p>
+            </div>
 
-        {status === "error" && (
-          <div className="py-4 text-center">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center border border-red-200 bg-red-50 text-red-600">
-              <Icon name="warning" className="h-7 w-7" />
-            </div>
-            <h2 className="text-xl font-extrabold font-industry uppercase tracking-wider text-blueprint-navy">Verification Failed</h2>
-            <div className="mt-4 flex items-center justify-center gap-2 rounded-none border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700 uppercase">
-              <Icon name="warning" className="h-4 w-4 shrink-0" />
-              <span>{message}</span>
-            </div>
-            <div className="mt-8 flex flex-col gap-3">
+            <form onSubmit={handleVerify} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">Email Address</label>
+                <input
+                  className="form-control"
+                  type="email"
+                  placeholder="you@buildtrack.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={loading || initialEmail !== ""}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold font-industry uppercase tracking-wider text-blueprint-navy/70">6-Digit Verification Code</label>
+                <input
+                  className="form-control text-center text-lg font-mono tracking-[10px] uppercase"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              {status === "error" && (
+                <div className="flex items-center gap-2 rounded-none border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700 uppercase">
+                  <Icon name="warning" className="h-4 w-4 shrink-0" />
+                  <span>{message}</span>
+                </div>
+              )}
+
               <Button
+                type="submit"
                 className="w-full rounded-none py-3"
-                onClick={() => navigate("/login")}
+                disabled={loading || otp.length !== 6 || !email}
               >
-                Go to Login
+                {loading ? "VERIFYING CODE..." : "VERIFY CODE"}
               </Button>
-              <Link to="/register" className="text-xs font-bold uppercase tracking-wider font-industry text-safety-orange hover:text-[#d96b14] underline">
-                Need a new account? Register here
-              </Link>
+            </form>
+
+            <div className="border-t border-blueprint-navy/10 pt-4 space-y-4">
+              {resendStatus && (
+                <div className={`flex items-center gap-2 rounded-none border px-4 py-2.5 text-xs font-bold uppercase ${
+                  resendStatus.includes("successfully") 
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700" 
+                    : "border-red-200 bg-red-50 text-red-700"
+                }`}>
+                  <Icon name={resendStatus.includes("successfully") ? "check" : "warning"} className="h-4 w-4 shrink-0" />
+                  <span>{resendStatus}</span>
+                </div>
+              )}
+
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full rounded-none py-3"
+                disabled={resendLoading || resendCountdown > 0}
+                onClick={handleResend}
+              >
+                {resendLoading 
+                  ? "RESENDING..." 
+                  : resendCountdown > 0 
+                    ? `RESEND AVAILABLE IN ${resendCountdown}S` 
+                    : "RESEND OTP CODE"}
+              </Button>
+
+              <div className="flex flex-col gap-2 text-center pt-2">
+                <Link to="/login" className="text-xs font-bold uppercase tracking-wider font-industry text-blueprint-navy/60 hover:text-blueprint-navy underline">
+                  Back to Login
+                </Link>
+                <Link to="/register" className="text-xs font-bold uppercase tracking-wider font-industry text-safety-orange hover:text-[#d96b14] underline">
+                  Need a new account? Register here
+                </Link>
+              </div>
             </div>
           </div>
         )}

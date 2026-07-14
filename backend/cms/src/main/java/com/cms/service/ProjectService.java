@@ -41,11 +41,18 @@ public class ProjectService {
     @Autowired
     private DailyReportRepository dailyReportRepository;
 
+    @Autowired
+    private ProjectAssignmentService projectAssignmentService;
+
     public Project saveProject(Project project) {
     	project.setId(generateProjectId());
         project.setManager(validateProjectManager(project.getManager()));
         normalizeCompletedProject(project);
-        return projectRepository.save(project);
+        Project saved = projectRepository.save(project);
+        if (saved.getManager() != null) {
+            projectAssignmentService.assignManagerImplicitly(saved.getId(), saved.getManager().getId());
+        }
+        return saved;
     }
 
     public List<Project> getAllProjects() {
@@ -58,6 +65,8 @@ public class ProjectService {
 
     public Project updateProject(String id, Project newProject) {
         Project prev = projectRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project Not found"));
+        
+        String oldManagerId = prev.getManager() != null ? prev.getManager().getId() : null;
         
         prev.setName(newProject.getName());
         prev.setClient(newProject.getClient());
@@ -73,7 +82,14 @@ public class ProjectService {
         prev.setStage(newProject.getStage());
         normalizeCompletedProject(prev);
         
-        return projectRepository.save(prev);
+        Project saved = projectRepository.save(prev);
+        
+        String newManagerId = saved.getManager() != null ? saved.getManager().getId() : null;
+        if (newManagerId != null && !newManagerId.equals(oldManagerId)) {
+            projectAssignmentService.assignManagerImplicitly(saved.getId(), newManagerId);
+        }
+        
+        return saved;
     }
     
     public List<User> getAvailableProjectManagers() {
@@ -145,10 +161,35 @@ public class ProjectService {
             Double budgetVal = project.getBudget() != null ? project.getBudget().doubleValue() : null;
             Integer budgetUsedPercent = null;
             Boolean isBudgetOverrunRisk = null;
+            String budgetPredictionMessage = null;
 
             if (budgetVal != null && budgetVal > 0) {
                 budgetUsedPercent = (int) Math.round((spentVal / budgetVal) * 100);
                 isBudgetOverrunRisk = budgetUsedPercent > (reportedProgress + 15);
+
+                if ("SITE ENGINEER".equalsIgnoreCase(role)) {
+                    budgetPredictionMessage = null;
+                } else if (spentVal >= budgetVal) {
+                    budgetPredictionMessage = "Budget already exceeded!";
+                } else {
+                    java.time.LocalDate startDate = project.getStart();
+                    java.time.LocalDate today = java.time.LocalDate.now();
+                    if (startDate != null) {
+                        long daysElapsed = java.time.temporal.ChronoUnit.DAYS.between(startDate, today);
+                        if (daysElapsed <= 0) {
+                            daysElapsed = 1;
+                        }
+                        double spendRatePerDay = spentVal / daysElapsed;
+                        if (spendRatePerDay > 0) {
+                            double remainingBudget = budgetVal - spentVal;
+                            long daysToExhaust = (long) Math.ceil(remainingBudget / spendRatePerDay);
+                            java.time.LocalDate exceedDate = today.plusDays(daysToExhaust);
+                            budgetPredictionMessage = "At this rate, budget will be exceeded by " + exceedDate.toString();
+                        } else {
+                            budgetPredictionMessage = "Spend rate is too low to project overrun.";
+                        }
+                    }
+                }
             }
 
             List<Material> materials = materialRepository.findByProjectId(project.getId());
@@ -172,6 +213,7 @@ public class ProjectService {
                 budgetUsedPercent = null;
                 isBudgetOverrunRisk = null;
                 finalBudget = null;
+                budgetPredictionMessage = null;
             }
 
             ProjectGanttSummary summary = new ProjectGanttSummary(
@@ -192,7 +234,8 @@ public class ProjectService {
                     isBudgetOverrunRisk,
                     materialsStatus,
                     isMaterialRisk,
-                    lowStockList
+                    lowStockList,
+                    budgetPredictionMessage
             );
             summaries.add(summary);
         }

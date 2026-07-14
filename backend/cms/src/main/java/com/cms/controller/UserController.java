@@ -78,15 +78,23 @@ public class UserController {
         }
     }
 
-    @GetMapping("/verify")
-    public ResponseEntity<String> verifyUser(@RequestParam String token) {
+    @PostMapping("/verify")
+    public ResponseEntity<?> verifyUser(@RequestBody Map<String, String> request) {
         try {
-            String result = userService.verifyUser(token);
-            return ResponseEntity.ok(result);
+            String email = request.get("email");
+            String otp = request.get("otp");
+            String result = userService.verifyUser(email, otp);
+            Map<String, String> response = new HashMap<>();
+            response.put("message", result);
+            return ResponseEntity.ok(response);
         } catch (ResponseStatusException ex) {
-            return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
+            Map<String, String> response = new HashMap<>();
+            response.put("error", ex.getReason());
+            return ResponseEntity.status(ex.getStatusCode()).body(response);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Verification failed. Please try again.");
+            Map<String, String> response = new HashMap<>();
+            response.put("error", "Verification failed. Please try again.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 

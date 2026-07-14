@@ -148,7 +148,7 @@ public class ProjectAssistantService {
         content.put("parts", List.of(promptText));
 
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("system_instruction", systemParts);
+        requestBody.put("systemInstruction", systemParts);
         requestBody.put("contents", List.of(content));
         return requestBody;
     }

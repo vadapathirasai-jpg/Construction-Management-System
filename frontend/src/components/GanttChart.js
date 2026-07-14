@@ -244,6 +244,11 @@ export default function GanttChart() {
                     {hovered.budgetUsedPercent}%
                   </strong>
                 </p>
+                {hovered.budgetPredictionMessage && (
+                  <p className="text-[10px] text-rose-300 border-t border-white/5 pt-1 mt-1 font-semibold leading-snug">
+                    {hovered.budgetPredictionMessage}
+                  </p>
+                )}
               </>
             )}
 

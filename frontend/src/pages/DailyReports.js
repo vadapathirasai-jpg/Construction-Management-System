@@ -35,14 +35,31 @@ export default function DailyReports() {
   }, [form.projectId, projects, state?.projectId]);
 
   const change = (key, value) => setForm((current) => ({ ...current, [key]: value }));
-  const changeRoleCount = (role, value) => change(role, Math.max(0, Number(value) || 0));
+  const changeRoleCount = (role, value) => {
+    if (value === "") {
+      change(role, "");
+    } else {
+      change(role, Math.max(0, Number(value) || 0));
+    }
+  };
 
   const submit = (event) => {
     event.preventDefault();
     if (!form.projectId || !form.date || !form.remarks.trim() || totalPresent <= 0) {
       return setFormError("Select a project and enter workers present by role and site remarks.");
     }
-    addDailyReport({ ...form, present: totalPresent });
+    
+    // Create a normalized copy of form data for the backend API
+    const normalizedForm = { ...form, present: totalPresent };
+    workerRoles.forEach((role) => {
+      normalizedForm[role] = Number(form[role]) || 0;
+    });
+    normalizedForm.absent = Number(form.absent) || 0;
+    normalizedForm.cement = Number(form.cement) || 0;
+    normalizedForm.sand = Number(form.sand) || 0;
+    normalizedForm.progress = Number(form.progress) || 0;
+
+    addDailyReport(normalizedForm);
     setFormError("");
     setSaved(true);
   };
@@ -69,7 +86,7 @@ export default function DailyReports() {
             <input className="form-control bg-slate-50 font-semibold" type="number" min="0" value={totalPresent} readOnly />
           </Field>
           <Field label="Workers Absent">
-            <input className="form-control" type="number" min="0" value={form.absent} onChange={(e) => change("absent", Number(e.target.value))} />
+            <input className="form-control" type="number" min="0" value={form.absent} onChange={(e) => change("absent", e.target.value === "" ? "" : Number(e.target.value))} />
           </Field>
         </div>
 
@@ -83,13 +100,13 @@ export default function DailyReports() {
         <h2 className="mb-4 mt-7 border-t border-slate-100 pt-6 font-semibold">Usage and Progress</h2>
         <div className="grid gap-5 sm:grid-cols-3">
           <Field label="Cement Used (bags)">
-            <input className="form-control" type="number" min="0" value={form.cement} onChange={(e) => change("cement", Number(e.target.value))} />
+            <input className="form-control" type="number" min="0" value={form.cement} onChange={(e) => change("cement", e.target.value === "" ? "" : Number(e.target.value))} />
           </Field>
           <Field label="Sand Used (tons)">
-            <input className="form-control" type="number" min="0" step="0.1" value={form.sand} onChange={(e) => change("sand", Number(e.target.value))} />
+            <input className="form-control" type="number" min="0" step="0.1" value={form.sand} onChange={(e) => change("sand", e.target.value === "" ? "" : Number(e.target.value))} />
           </Field>
           <Field label="Overall Progress (%)">
-            <input className="form-control" type="number" min="0" max="100" value={form.progress} onChange={(e) => change("progress", Number(e.target.value))} />
+            <input className="form-control" type="number" min="0" max="100" value={form.progress} onChange={(e) => change("progress", e.target.value === "" ? "" : Number(e.target.value))} />
           </Field>
         </div>
 

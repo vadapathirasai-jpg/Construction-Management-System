@@ -31,6 +31,11 @@ public class ProjectAssignmentService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found."));
 
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!canUserAccessProject(email, projectId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this project.");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found."));
 
@@ -50,6 +55,11 @@ public class ProjectAssignmentService {
 
     @Transactional
     public void removeAssignment(String projectId, String userId) {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!canUserAccessProject(email, projectId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this project.");
+        }
+
         if (!projectAssignmentRepository.existsByProjectIdAndUserId(projectId, userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found.");
         }
@@ -82,7 +92,26 @@ public class ProjectAssignmentService {
         if ("ADMIN".equals(user.getRole())) {
             return true;
         }
-        return projectAssignmentRepository.existsByProjectIdAndUserId(projectId, user.getId());
+        if (!projectAssignmentRepository.existsByProjectIdAndUserId(projectId, user.getId())) {
+            return false;
+        }
+        String role = user.getRole();
+        return "PROJECT MANAGER".equals(role) || "SITE ENGINEER".equals(role) || "ACCOUNTANT".equals(role);
+    }
+
+    public void assignManagerImplicitly(String projectId, String userId) {
+        if (projectId == null || userId == null) {
+            return;
+        }
+        if (!projectAssignmentRepository.existsByProjectIdAndUserId(projectId, userId)) {
+            Project project = projectRepository.findById(projectId).orElse(null);
+            User user = userRepository.findById(userId).orElse(null);
+            if (project != null && user != null) {
+                String id = generateAssignmentId();
+                ProjectAssignment assignment = new ProjectAssignment(id, project, user);
+                projectAssignmentRepository.save(assignment);
+            }
+        }
     }
 
     private String generateAssignmentId() {

@@ -3,7 +3,7 @@ import { Button, Modal, LoadingState } from "./UI";
 import { useAppData } from "../context/AppData";
 
 export default function ProjectAssignmentPanel({ project, onClose }) {
-  const { authFetch, users } = useAppData();
+  const { authFetch, users, currentUser } = useAppData();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
