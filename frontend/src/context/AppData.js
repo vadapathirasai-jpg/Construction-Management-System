@@ -262,7 +262,7 @@ export function AppDataProvider({ children }) {
       if (response.ok) {
         // Update the project's progress and stage on the backend/frontend
         const project = projects.find((p) => p.id === report.projectId);
-        if (project) {
+        if (project && (currentUser?.role === "Admin" || currentUser?.role === "Project Manager")) {
           const updatedProject = { ...project, progress: Number(report.progress), stage: report.remarks };
           await update("projects", updatedProject);
         }

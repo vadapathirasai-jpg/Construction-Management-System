@@ -145,6 +145,7 @@ public class ProjectService {
         for (Project project : allProjects) {
             List<DailyReport> reports = dailyReportRepository.findByProjectId(project.getId());
             DailyReport latestReport = reports.stream()
+                    .filter(r -> r.getDate() != null)
                     .max(Comparator.comparing(DailyReport::getDate))
                     .orElse(null);
 
