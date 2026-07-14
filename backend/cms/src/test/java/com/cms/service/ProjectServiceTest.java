@@ -41,6 +41,14 @@ public class ProjectServiceTest {
     @Mock
     private DailyReportRepository dailyReportRepository;
 
+    @Mock
+    private MilestoneService milestoneService;
+
+    @org.junit.jupiter.api.BeforeEach
+    public void setUp() {
+        org.mockito.Mockito.lenient().when(milestoneService.computeProjectProgress(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
+    }
+
     @Test
     public void testGetGanttSummaries_NoExpensesMaterialsReports() {
         Project project = new Project();
@@ -132,5 +140,30 @@ public class ProjectServiceTest {
         assertNull(summary.getSpent());
         assertNull(summary.getBudgetUsedPercent());
         assertNull(summary.getIsBudgetOverrunRisk());
+    }
+
+    @Test
+    public void testGetGanttSummaries_WithMilestoneProgress() {
+        Project project = new Project();
+        project.setId("PRJ-123");
+        project.setName("Test Project");
+        project.setBudget(new BigDecimal("10000"));
+        project.setStart(LocalDate.now());
+        project.setEnd(LocalDate.now().plusDays(30));
+        project.setProgress(20);
+        project.setStatus("Active");
+
+        when(milestoneService.computeProjectProgress("PRJ-123")).thenReturn(65);
+        when(projectRepository.findAll()).thenReturn(Collections.singletonList(project));
+        when(dailyReportRepository.findByProjectId("PRJ-123")).thenReturn(Collections.emptyList());
+        when(expenseRepository.findByProjectId("PRJ-123")).thenReturn(Collections.emptyList());
+        when(materialRepository.findByProjectId("PRJ-123")).thenReturn(Collections.emptyList());
+
+        List<ProjectGanttSummary> result = projectService.getGanttSummaries("ADMIN");
+
+        assertEquals(1, result.size());
+        ProjectGanttSummary summary = result.get(0);
+        assertEquals(65, summary.getReportedProgress());
+        assertEquals("Milestone Breakdown", summary.getProgressSource());
     }
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge, Button, Card, EmptyState, LoadingState, PageHeader, ProgressBar, StatusBadge, Table, Modal, Field } from "../components/UI";
 import { useAppData } from "../context/AppData";
@@ -7,11 +7,96 @@ import { formatCurrency, formatDate, workerRoles } from "../data";
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { accessibleProjects, workers, materials, expenses, dailyReports, can, loading, error, update, currentUser, authFetch, API_BASE } = useAppData();
+  const { accessibleProjects, workers, materials, expenses, dailyReports, can, loading, error, update, currentUser, authFetch, API_BASE, getMilestones, addMilestone, updateMilestone, removeMilestone } = useAppData();
   const [editing, setEditing] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(true);
   const [assistantQuestion, setAssistantQuestion] = useState("");
+
+  const [milestones, setMilestones] = useState([]);
+  const [loadingMilestones, setLoadingMilestones] = useState(false);
+
+  // Add modal fields
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [newMilestoneName, setNewMilestoneName] = useState("");
+  const [newMilestoneStart, setNewMilestoneStart] = useState("");
+  const [newMilestoneEnd, setNewMilestoneEnd] = useState("");
+  const [newMilestoneWeight, setNewMilestoneWeight] = useState("");
+  const [newMilestoneStatus, setNewMilestoneStatus] = useState("Not Started");
+
+  const fetchMilestones = useCallback(async () => {
+    setLoadingMilestones(true);
+    const data = await getMilestones(id);
+    setMilestones(data);
+    setLoadingMilestones(false);
+  }, [id, getMilestones]);
+
+  useEffect(() => {
+    fetchMilestones();
+  }, [fetchMilestones]);
+
+  const handleAddMilestoneSubmit = async (e) => {
+    e.preventDefault();
+    if (!newMilestoneName.trim() || !newMilestoneStart || !newMilestoneEnd) {
+      alert("Name, Start Date, and End Date are required.");
+      return;
+    }
+
+    const payload = {
+      name: newMilestoneName.trim(),
+      plannedStart: newMilestoneStart,
+      plannedEnd: newMilestoneEnd,
+      weightPercent: newMilestoneWeight ? Number(newMilestoneWeight) : null,
+      percentComplete: 0,
+      status: newMilestoneStatus,
+      projectId: id,
+    };
+
+    const res = await addMilestone(id, payload);
+    if (res.success) {
+      setNewMilestoneName("");
+      setNewMilestoneStart("");
+      setNewMilestoneEnd("");
+      setNewMilestoneWeight("");
+      setNewMilestoneStatus("Not Started");
+      setAddModalOpen(false);
+      fetchMilestones();
+    } else {
+      alert(res.error || "Failed to add milestone.");
+    }
+  };
+
+  const handlePercentChange = async (m, value) => {
+    const updated = {
+      ...m,
+      percentComplete: value,
+      status: value === 100 ? "Completed" : value > 0 ? "In Progress" : m.status
+    };
+    setMilestones((prev) => prev.map((item) => item.id === m.id ? updated : item));
+    await updateMilestone(updated);
+    fetchMilestones();
+  };
+
+  const handleStatusChange = async (m, newStatus) => {
+    const updated = {
+      ...m,
+      status: newStatus,
+      percentComplete: newStatus === "Completed" ? 100 : newStatus === "Not Started" ? 0 : m.percentComplete
+    };
+    setMilestones((prev) => prev.map((item) => item.id === m.id ? updated : item));
+    await updateMilestone(updated);
+    fetchMilestones();
+  };
+
+  const handleRemoveMilestone = async (milestoneId) => {
+    if (!window.confirm("Are you sure you want to delete this phase?")) return;
+    const res = await removeMilestone(milestoneId);
+    if (res.success) {
+      fetchMilestones();
+    } else {
+      alert(res.error || "Failed to delete milestone.");
+    }
+  };
   const [assistantMessages, setAssistantMessages] = useState([]);
   const [assistantLoading, setAssistantLoading] = useState(false);
 
@@ -102,6 +187,49 @@ export default function ProjectDetail() {
 
   const workerCounts = workerRoles.map((role) => [role, latest?.[role] ?? projectWorkers.filter((worker) => worker.role === role).length]).filter(([, count]) => count);
 
+  const hasMilestones = milestones && milestones.length > 0;
+  
+  let computedProgress = 0;
+  let progressSourceLabel = "";
+  if (hasMilestones) {
+    let useWeights = true;
+    let weightSum = 0;
+    for (const m of milestones) {
+      if (m.weightPercent == null || m.weightPercent < 0) {
+        useWeights = false;
+        break;
+      }
+      weightSum += m.weightPercent;
+    }
+    if (useWeights && Math.abs(weightSum - 100) > 1) {
+      useWeights = false;
+    }
+    
+    if (useWeights && weightSum > 0) {
+      let weightedSum = 0;
+      for (const m of milestones) {
+        const pct = m.percentComplete || 0;
+        weightedSum += pct * (m.weightPercent / weightSum);
+      }
+      computedProgress = Math.round(weightedSum);
+      progressSourceLabel = `Progress: ${computedProgress}% — from ${milestones.length} phases (weighted)`;
+    } else {
+      let sum = 0;
+      for (const m of milestones) {
+        sum += m.percentComplete || 0;
+      }
+      computedProgress = Math.round(sum / milestones.length);
+      progressSourceLabel = `Progress: ${computedProgress}% — from ${milestones.length} phases (equal weight)`;
+    }
+  } else {
+    computedProgress = project.status === "Completed" ? 100 : (latest?.progress ?? Number(project.progress || 0));
+    progressSourceLabel = project.status === "Completed" 
+      ? "Progress: 100% — Project Completed"
+      : latest 
+        ? `Progress: ${computedProgress}% — from latest daily report`
+        : `Progress: ${computedProgress}% — from project profile`;
+  }
+
   return (
     <>
       <PageHeader
@@ -152,8 +280,8 @@ export default function ProjectDetail() {
             })()}
           </dl>
           <div className="mt-6 border-t border-slate-100 pt-5">
-            <p className="mb-2 text-sm font-medium">Overall Progress</p>
-            <ProgressBar value={project.status === "Completed" ? 100 : Number(project.progress || 0)} />
+            <p className="mb-2 text-sm font-medium">{progressSourceLabel}</p>
+            <ProgressBar value={project.status === "Completed" ? 100 : computedProgress} />
           </div>
         </Card>
         
@@ -180,6 +308,87 @@ export default function ProjectDetail() {
           </div>
         </Card>
       </div>
+
+      <Card className="mt-5 p-5">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h2 className="font-semibold">Project Phases & Milestones</h2>
+            <p className="mt-1 text-xs text-slate-500">Track structured project progress across named phases</p>
+          </div>
+          {can("manageMilestones") && (
+            <Button size="sm" onClick={() => setAddModalOpen(true)}>
+              Add Phase
+            </Button>
+          )}
+        </div>
+        
+        <div className="mt-4 space-y-4">
+          {loadingMilestones ? (
+            <LoadingState />
+          ) : milestones.length ? (
+            milestones.map((m) => (
+              <div key={m.id} className="border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 uppercase text-xs">{m.name}</h3>
+                    <p className="mt-0.5 text-[10px] text-slate-400">
+                      Planned: {formatDate(m.plannedStart)} to {formatDate(m.plannedEnd)}
+                      {m.weightPercent != null && ` · Weight: ${m.weightPercent}%`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <StatusBadge status={m.status} />
+                    {can("manageMilestones") && (
+                      <button
+                        onClick={() => handleRemoveMilestone(m.id)}
+                        className="text-xs text-red-500 hover:text-red-700 font-industry uppercase font-bold"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex-1">
+                    <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                      <span>Progress</span>
+                      <span>{m.percentComplete || 0}%</span>
+                    </div>
+                    {can("manageMilestones") ? (
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={m.percentComplete || 0}
+                        onChange={(e) => handlePercentChange(m, Number(e.target.value))}
+                        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-safety-orange"
+                      />
+                    ) : (
+                      <ProgressBar value={m.percentComplete || 0} compact />
+                    )}
+                  </div>
+                  {can("manageMilestones") && (
+                    <div className="w-36 shrink-0">
+                      <select
+                        className="form-control text-xs py-1"
+                        value={m.status}
+                        onChange={(e) => handleStatusChange(m, e.target.value)}
+                      >
+                        <option value="Not Started">Not Started</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-slate-500">No phases or milestones defined for this project.</p>
+          )}
+        </div>
+      </Card>
 
       <div className={`mt-5 grid gap-5 lg:grid-cols-${currentUser?.role === "Site Engineer" ? 2 : 3}`}>
         <Card className="p-5">
@@ -361,6 +570,79 @@ export default function ProjectDetail() {
                 onChange={(e) => setProgress(Number(e.target.value))}
               />
             </Field>
+          </div>
+        </Modal>
+      )}
+      {/* Add Phase Modal */}
+      {addModalOpen && (
+        <Modal
+          title="Add New Project Phase / Milestone"
+          description="Create a new milestone to track structured project progress."
+          onClose={() => setAddModalOpen(false)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setAddModalOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddMilestoneSubmit}>Add Phase</Button>
+            </>
+          }
+        >
+          <div className="space-y-4 font-sans text-slate-800">
+            <Field label="Phase Name">
+              <input
+                type="text"
+                placeholder="e.g. Foundation Work"
+                className="form-control"
+                value={newMilestoneName}
+                onChange={(e) => setNewMilestoneName(e.target.value)}
+                required
+              />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Planned Start">
+                <input
+                  type="date"
+                  className="form-control"
+                  value={newMilestoneStart}
+                  onChange={(e) => setNewMilestoneStart(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="Planned End">
+                <input
+                  type="date"
+                  className="form-control"
+                  value={newMilestoneEnd}
+                  onChange={(e) => setNewMilestoneEnd(e.target.value)}
+                  required
+                />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Weight (%) — Optional">
+                <input
+                  type="number"
+                  placeholder="e.g. 30"
+                  min="0"
+                  max="100"
+                  className="form-control"
+                  value={newMilestoneWeight}
+                  onChange={(e) => setNewMilestoneWeight(e.target.value)}
+                />
+              </Field>
+              <Field label="Initial Status">
+                <select
+                  className="form-control"
+                  value={newMilestoneStatus}
+                  onChange={(e) => setNewMilestoneStatus(e.target.value)}
+                >
+                  <option value="Not Started">Not Started</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </Field>
+            </div>
           </div>
         </Modal>
       )}

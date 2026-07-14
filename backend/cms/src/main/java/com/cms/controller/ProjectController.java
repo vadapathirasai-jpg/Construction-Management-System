@@ -41,7 +41,6 @@ public class ProjectController {
 
     @PostMapping
     public Project saveProject(@RequestBody Project project) {
-        System.out.println(project.getName());
         return projectService.saveProject(project);
     }
 

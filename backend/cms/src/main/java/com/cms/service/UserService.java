@@ -7,6 +7,8 @@ import java.time.Instant;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -17,6 +19,8 @@ import com.cms.repository.UserRepository;
 
 @Service
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final ConcurrentHashMap<String, Instant> resendRateLimits = new ConcurrentHashMap<>();
 
@@ -101,38 +105,26 @@ public class UserService {
 
     public User updateUser(User user) {
         User existing = userRepository.findById(user.getId()).orElse(null);
-        String previousRole = existing != null ? existing.getRole() : null;
-
-        // if true
-        if (existing != null) {
-        	//no password
-            if (user.getPassword() == null || user.getPassword().isEmpty()) {
-                user.setPassword(existing.getPassword());
-            } 
-            else if (!user.getPassword().equals(existing.getPassword()) && !user.getPassword().startsWith("$2a$")) {
-                // If it's a new password (not already a BCrypt hash starting with $2a$), encode it
-                user.setPassword(passwordEncoder.encode(user.getPassword()));
-            }
-        } 
-        // if false
-        else
-        
-        {
-            if (user.getPassword() == null || user.getPassword().isEmpty()) {
-                user.setPassword(passwordEncoder.encode("password123"));
-            } else {
-                user.setPassword(passwordEncoder.encode(user.getPassword()));
-            }
+        if (existing == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found.");
         }
-        
+
+        String previousRole = existing.getRole();
+
+        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+            user.setPassword(existing.getPassword());
+        } else if (!user.getPassword().equals(existing.getPassword()) && !user.getPassword().startsWith("$2a$")) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
+
         normalizeUserRole(user);
         User savedUser = userRepository.save(user);
 
-        if (existing != null && previousRole != null && !previousRole.equalsIgnoreCase(savedUser.getRole())) {
+        if (previousRole != null && !previousRole.equalsIgnoreCase(savedUser.getRole())) {
             try {
                 emailService.sendRoleUpdatedEmail(savedUser.getEmail(), savedUser.getName(), savedUser.getRole());
             } catch (Exception ex) {
-                System.err.println("Failed to send role update email for " + savedUser.getEmail() + ": " + ex.getMessage());
+                log.error("Failed to send role update email for {}", savedUser.getEmail(), ex);
             }
         }
 

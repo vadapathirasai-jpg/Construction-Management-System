@@ -275,6 +275,94 @@ export function AppDataProvider({ children }) {
     }
   };
 
+  const getMilestones = useCallback(async (projectId) => {
+    try {
+      const response = await authFetch(`${API_BASE}/projects/${projectId}/milestones`);
+      if (!response.ok) {
+        throw new Error(`Milestones fetch returned ${response.status}`);
+      }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error(`Error fetching milestones for project ${projectId}:`, err);
+      return [];
+    }
+  }, [authFetch]);
+
+  const addMilestone = async (projectId, milestone) => {
+    try {
+      const response = await authFetch(`${API_BASE}/projects/${projectId}/milestones`, {
+        method: "POST",
+        body: JSON.stringify(milestone),
+      });
+      if (response.ok) {
+        await fetchData();
+        setError("");
+        return { success: true };
+      } else {
+        const message = await response.text().catch(() => "");
+        const errorMessage = message || `Failed to save new milestone.`;
+        console.error(errorMessage);
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    } catch (err) {
+      console.error("Error adding milestone:", err);
+      const errorMessage = "Could not save milestone. Please check the backend connection.";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const updateMilestone = async (milestone) => {
+    try {
+      const response = await authFetch(`${API_BASE}/milestones/${milestone.id}`, {
+        method: "PUT",
+        body: JSON.stringify(milestone),
+      });
+      if (response.ok) {
+        await fetchData();
+        setError("");
+        return { success: true };
+      } else {
+        const message = await response.text().catch(() => "");
+        const errorMessage = message || `Failed to update milestone.`;
+        console.error(errorMessage);
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    } catch (err) {
+      console.error("Error updating milestone:", err);
+      const errorMessage = "Could not update milestone. Please check the backend connection.";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const removeMilestone = async (milestoneId) => {
+    try {
+      const response = await authFetch(`${API_BASE}/milestones/${milestoneId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        await fetchData();
+        setError("");
+        return { success: true };
+      } else {
+        const message = await response.text().catch(() => "");
+        const errorMessage = message || `Failed to delete milestone.`;
+        console.error(errorMessage);
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    } catch (err) {
+      console.error("Error deleting milestone:", err);
+      const errorMessage = "Could not delete milestone. Please check the backend connection.";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const login = async (email, password) => {
     try {
       const response = await fetch(`${API_BASE}/users/login`, {
@@ -369,10 +457,10 @@ export function AppDataProvider({ children }) {
   };
 
   const permissions = {
-    Admin: ["manageUsers", "createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "delete", "viewWorkers", "viewMaterials"],
-    "Project Manager": ["manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials"],
-    "Site Engineer": ["viewReports", "dailyReport", "viewWorkers", "viewMaterials"],
-    Accountant: ["manageExpenses", "viewReports"],
+    Admin: ["manageUsers", "createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "delete", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones"],
+    "Project Manager": ["manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones"],
+    "Site Engineer": ["viewReports", "dailyReport", "viewWorkers", "viewMaterials", "viewMilestones"],
+    Accountant: ["manageExpenses", "viewReports", "viewMilestones"],
   };
   const can = (permission) => {
     if (!currentUser) return false;
@@ -397,7 +485,7 @@ export function AppDataProvider({ children }) {
   const filteredExpenses = currentUser?.role === "Admin" ? expenses : expenses.filter((e) => accessibleProjectNames.has(e.project?.name || e.project));
   const filteredDailyReports = currentUser?.role === "Admin" ? dailyReports : dailyReports.filter((r) => accessibleProjectIds.has(r.projectId));
 
-return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, resendVerification, verifyUser, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE }}>{children}</AppDataContext.Provider>;}
+return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, resendVerification, verifyUser, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE, getMilestones, addMilestone, updateMilestone, removeMilestone }}>{children}</AppDataContext.Provider>;}
 
 export const useAppData = () => useContext(AppDataContext);
 

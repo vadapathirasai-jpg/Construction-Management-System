@@ -14,4 +14,4 @@ frontend/.env
 
 # General
 .DS_Store
-*.log
+*.log"backend/cms/src/main/resources/application.properties" 

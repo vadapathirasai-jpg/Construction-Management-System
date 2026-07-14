@@ -12,18 +12,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const demoAccounts = [
-    { role: "Admin", email: "admin@buildtrack.com", password: "admin123", color: "border-blueprint-navy/30 bg-blueprint-navy/5 text-blueprint-navy hover:bg-blueprint-navy/10" },
-    { role: "Project Manager", email: "manager@buildtrack.com", password: "manager123", color: "border-safety-orange/30 bg-safety-orange/5 text-safety-orange hover:bg-safety-orange/10" },
-    { role: "Site Engineer", email: "engineer@buildtrack.com", password: "engineer123", color: "border-safety-yellow/40 bg-safety-yellow/5 text-blueprint-navy hover:bg-safety-yellow/15" },
-    { role: "Accountant", email: "accountant@buildtrack.com", password: "accountant123", color: "border-concrete-gray/30 bg-concrete-gray/5 text-concrete-gray hover:bg-concrete-gray/10" },
-  ];
 
-  const handleDemoClick = (acc) => {
-    setEmail(acc.email);
-    setPassword(acc.password);
-    setError("");
-  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -149,26 +138,7 @@ export default function Login() {
             New to BuildTrack? <Link className="text-safety-orange hover:text-[#d96b14] underline" to="/register">Register pass</Link>
           </p>
 
-          {/* Quick Login Section */}
-          <div className="mt-8 border-t border-blueprint-navy/15 pt-6">
-            <p className="mb-3 text-[10px] font-extrabold uppercase tracking-widest text-[#8E9AA6] font-industry">QUICK LOGIN (DEMO ROLES)</p>
-            <div className="grid grid-cols-2 gap-2">
-              {demoAccounts.map((acc) => (
-                <button
-                  key={acc.role}
-                  type="button"
-                  onClick={() => handleDemoClick(acc)}
-                  className={`flex flex-col items-start rounded-none border p-2.5 text-left transition-all duration-200 ${acc.color} active:scale-[0.97]`}
-                >
-                  <span className="text-[10px] font-bold font-industry uppercase tracking-wider">{acc.role}</span>
-                  <span className="mt-1 w-full truncate text-[9px] font-mono opacity-80">{acc.email}</span>
-                </button>
-              ))}
-            </div>
-            <p className="mt-4 text-center text-[9px] font-bold font-industry uppercase tracking-wider text-blueprint-navy/40">
-              Role-based APIs and JWT access controls active.
-            </p>
-          </div>
+
         </div>
       </div>
     </div>

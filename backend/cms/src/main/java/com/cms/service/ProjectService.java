@@ -44,6 +44,9 @@ public class ProjectService {
     @Autowired
     private ProjectAssignmentService projectAssignmentService;
 
+    @Autowired
+    private MilestoneService milestoneService;
+
     public Project saveProject(Project project) {
     	project.setId(generateProjectId());
         project.setManager(validateProjectManager(project.getManager()));
@@ -145,11 +148,24 @@ public class ProjectService {
                     .max(Comparator.comparing(DailyReport::getDate))
                     .orElse(null);
 
-            Integer reportedProgress = project.getProgress();
-            String progressSource = "Project Profile";
-            if (latestReport != null) {
-                reportedProgress = latestReport.getProgress();
-                progressSource = "Daily Report (" + latestReport.getDate() + ")";
+            Integer reportedProgress;
+            String progressSource;
+
+            if ("Completed".equalsIgnoreCase(project.getStatus())) {
+                reportedProgress = 100;
+                progressSource = "Project Profile";
+            } else {
+                Integer milestoneProgress = milestoneService.computeProjectProgress(project.getId());
+                if (milestoneProgress != null) {
+                    reportedProgress = milestoneProgress;
+                    progressSource = "Milestone Breakdown";
+                } else if (latestReport != null) {
+                    reportedProgress = latestReport.getProgress();
+                    progressSource = "Daily Report (" + latestReport.getDate() + ")";
+                } else {
+                    reportedProgress = project.getProgress();
+                    progressSource = "Project Profile";
+                }
             }
 
             List<Expense> expenses = expenseRepository.findByProjectId(project.getId());

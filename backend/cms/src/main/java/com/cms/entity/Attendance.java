@@ -15,8 +15,16 @@ public class Attendance {
     @Column(nullable = false)
     private String workerId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "workerId", referencedColumnName = "id", insertable = false, updatable = false)
+    private Worker worker;
+
     private String workerName;
     private String project;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project", referencedColumnName = "id", insertable = false, updatable = false)
+    private Project projectEntity;
 
     @Column(nullable = false)
     private LocalDate date;
@@ -69,6 +77,22 @@ public class Attendance {
 
     public void setProject(String project) {
         this.project = project;
+    }
+
+    public Worker getWorker() {
+        return worker;
+    }
+
+    public void setWorker(Worker worker) {
+        this.worker = worker;
+    }
+
+    public Project getProjectEntity() {
+        return projectEntity;
+    }
+
+    public void setProjectEntity(Project projectEntity) {
+        this.projectEntity = projectEntity;
     }
 
     public LocalDate getDate() {

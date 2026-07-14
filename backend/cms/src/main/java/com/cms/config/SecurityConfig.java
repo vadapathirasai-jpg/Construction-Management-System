@@ -55,11 +55,19 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/projects/*/assignments").authenticated()
 
                 // Projects
+                .requestMatchers(HttpMethod.GET, "/projects/test-weekly-summary").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/projects").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/projects/*/assistant/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
                 .requestMatchers(HttpMethod.GET, "/projects/**").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/projects/**").hasAuthority("ADMIN")
                 .requestMatchers("/projects/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
                 
+                // Milestones
+                .requestMatchers(HttpMethod.GET, "/projects/*/milestones").authenticated()
+                .requestMatchers(HttpMethod.GET, "/milestones/**").authenticated()
+                .requestMatchers("/projects/*/milestones").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
+                .requestMatchers("/milestones/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
+
                 // Workers
                 .requestMatchers(HttpMethod.GET, "/workers/**").authenticated()
                 .requestMatchers("/workers/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER")

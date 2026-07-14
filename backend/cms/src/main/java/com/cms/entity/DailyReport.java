@@ -13,6 +13,10 @@ public class DailyReport {
     private String id;
 
     private String projectId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "projectId", referencedColumnName = "id", insertable = false, updatable = false)
+    private Project project;
     private LocalDate date;
     private int present;
     private int absent;
@@ -91,6 +95,12 @@ public class DailyReport {
 	}
 	public void setProjectId(String projectId) {
 		this.projectId = projectId;
+	}
+	public Project getProject() {
+		return project;
+	}
+	public void setProject(Project project) {
+		this.project = project;
 	}
 	public LocalDate getDate() {
 		return date;
