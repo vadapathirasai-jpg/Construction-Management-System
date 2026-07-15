@@ -22,8 +22,14 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import com.cms.entity.DailyReport;
 import com.cms.entity.Project;
+import com.cms.entity.Expense;
+import com.cms.entity.Material;
+import com.cms.entity.Milestone;
 import com.cms.repository.DailyReportRepository;
 import com.cms.repository.ProjectRepository;
+import com.cms.repository.ExpenseRepository;
+import com.cms.repository.MaterialRepository;
+import com.cms.repository.MilestoneRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -37,6 +43,15 @@ public class ProjectAssistantService {
 
     @Autowired
     private DailyReportRepository dailyReportRepository;
+
+    @Autowired
+    private ExpenseRepository expenseRepository;
+
+    @Autowired
+    private MaterialRepository materialRepository;
+
+    @Autowired
+    private MilestoneRepository milestoneRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -57,16 +72,49 @@ public class ProjectAssistantService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Question is required.");
         }
 
-        if (geminiApiKey == null || geminiApiKey.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "AI assistant is not configured. Set the GEMINI_API_KEY environment variable on the backend.");
-        }
-
         List<DailyReport> reports = dailyReportRepository.findByProjectId(projectId);
         reports.sort(Comparator.comparing(DailyReport::getDate, Comparator.nullsLast(Comparator.naturalOrder())));
 
         String context = buildProjectContext(project, reports);
         Map<String, Object> requestBody = buildGeminiRequest(context, question.trim());
+
+        return invokeGemini(requestBody);
+    }
+
+    public String polishDailyReportRemarks(String roughNotes) {
+        if (roughNotes == null || roughNotes.isBlank()) {
+            return roughNotes;
+        }
+
+        String systemInstruction = "The following are rough, informal notes from a construction site engineer's daily report. "
+                + "Rewrite them as a clear, professional, concise report remark in 1-3 sentences. "
+                + "Do not invent any details not mentioned in the notes. "
+                + "If the notes are empty or nonsensical, return them unchanged rather than fabricating content.";
+
+        Map<String, Object> systemText = new HashMap<>();
+        systemText.put("text", systemInstruction);
+
+        Map<String, Object> systemParts = new HashMap<>();
+        systemParts.put("parts", List.of(systemText));
+
+        Map<String, Object> promptText = new HashMap<>();
+        promptText.put("text", roughNotes.trim());
+
+        Map<String, Object> content = new HashMap<>();
+        content.put("parts", List.of(promptText));
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("systemInstruction", systemParts);
+        requestBody.put("contents", List.of(content));
+
+        return invokeGemini(requestBody);
+    }
+
+    private String invokeGemini(Map<String, Object> requestBody) {
+        if (geminiApiKey == null || geminiApiKey.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "AI assistant is not configured. Set the GEMINI_API_KEY environment variable on the backend.");
+        }
 
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -99,7 +147,7 @@ public class ProjectAssistantService {
 
     private String buildProjectContext(Project project, List<DailyReport> reports) {
         StringBuilder context = new StringBuilder();
-        context.append("Project Information\n");
+        context.append("PROJECT INFORMATION:\n");
         context.append("ID: ").append(value(project.getId())).append("\n");
         context.append("Name: ").append(value(project.getName())).append("\n");
         context.append("Client: ").append(value(project.getClient())).append("\n");
@@ -110,18 +158,85 @@ public class ProjectAssistantService {
         context.append("Status: ").append(value(project.getStatus())).append("\n");
         context.append("Stage: ").append(value(project.getStage())).append("\n\n");
 
-        context.append("Daily Reports (oldest first)\n");
-        if (reports.isEmpty()) {
-            context.append("No daily reports are available for this project.\n");
-            return context.toString();
+        // EXPENSES:
+        List<Expense> expenses = expenseRepository.findByProjectId(project.getId());
+        double totalApprovedExpenses = expenses.stream()
+                .filter(e -> "Approved".equalsIgnoreCase(e.getApproval()))
+                .mapToDouble(e -> e.getAmount() != null ? e.getAmount().doubleValue() : 0.0)
+                .sum();
+        context.append("EXPENSES:\n");
+        context.append("Total Approved Expenses Spent: ").append(totalApprovedExpenses).append("\n");
+        if (expenses.isEmpty()) {
+            context.append("No expenses recorded.\n\n");
+        } else {
+            for (Expense expense : expenses) {
+                context.append("- Date: ").append(value(expense.getDate()))
+                        .append(" | Description: ").append(value(expense.getDescription()))
+                        .append(" | Category: ").append(value(expense.getCategory()))
+                        .append(" | Amount: ").append(value(expense.getAmount()))
+                        .append(" | Status: ").append(value(expense.getApproval())).append("\n");
+            }
+            context.append("\n");
         }
 
-        for (DailyReport report : reports) {
-            context.append("- Date: ").append(value(report.getDate())).append("\n");
-            context.append("  Progress: ").append(report.getProgress()).append("%\n");
-            context.append("  Remarks: ").append(value(report.getRemarks())).append("\n");
-            context.append("  Cement: ").append(report.getCement()).append("\n");
-            context.append("  Sand: ").append(report.getSand()).append("\n");
+        // MATERIALS:
+        List<Material> materials = materialRepository.findByProjectId(project.getId());
+        context.append("MATERIALS:\n");
+        if (materials.isEmpty()) {
+            context.append("No materials recorded.\n\n");
+        } else {
+            for (Material material : materials) {
+                String name = value(material.getName());
+                double quantity = material.getQuantity();
+                String status = value(material.getStatus());
+                
+                context.append("- Name: ").append(name)
+                        .append(" | Quantity: ").append(quantity)
+                        .append(" | Unit: ").append(value(material.getUnit()))
+                        .append(" | Status: ").append(status);
+                
+                if ("Low Stock".equalsIgnoreCase(status) || "Out of Stock".equalsIgnoreCase(status)) {
+                    context.append(" [WARNING: ").append(status.toUpperCase()).append("]");
+                }
+                context.append("\n");
+            }
+            context.append("\n");
+        }
+
+        // MILESTONES:
+        List<Milestone> milestones = milestoneRepository.findByProjectId(project.getId());
+        context.append("MILESTONES:\n");
+        if (milestones.isEmpty()) {
+            context.append("No milestones recorded.\n\n");
+        } else {
+            for (Milestone milestone : milestones) {
+                context.append("- Name: ").append(value(milestone.getName()))
+                        .append(" | Planned Start: ").append(value(milestone.getPlannedStart()))
+                        .append(" | Planned End: ").append(value(milestone.getPlannedEnd()))
+                        .append(" | Weight: ").append(milestone.getWeightPercent())
+                        .append(" | Progress: ").append(milestone.getPercentComplete()).append("%")
+                        .append(" | Status: ").append(value(milestone.getStatus())).append("\n");
+            }
+            context.append("\n");
+        }
+
+        // DAILY REPORTS (oldest first, capped to latest 15 for token efficiency):
+        context.append("DAILY REPORTS (latest 15 reports, oldest to newest):\n");
+        if (reports.isEmpty()) {
+            context.append("No daily reports are available for this project.\n\n");
+        } else {
+            List<DailyReport> displayReports = reports;
+            if (reports.size() > 15) {
+                displayReports = reports.subList(reports.size() - 15, reports.size());
+            }
+            for (DailyReport report : displayReports) {
+                context.append("- Date: ").append(value(report.getDate())).append("\n");
+                context.append("  Progress: ").append(report.getProgress()).append("%\n");
+                context.append("  Remarks: ").append(value(report.getRemarks())).append("\n");
+                context.append("  Cement: ").append(report.getCement()).append(" bags\n");
+                context.append("  Sand: ").append(report.getSand()).append(" units\n");
+            }
+            context.append("\n");
         }
 
         return context.toString();
@@ -129,9 +244,10 @@ public class ProjectAssistantService {
 
     private Map<String, Object> buildGeminiRequest(String context, String question) {
         String systemInstruction = "You are BuildTrack's AI Project Assistant. "
+                + "You can answer questions about daily activity, budget/expenses, material stock, and project milestones/phases. "
                 + "Only answer using the provided project data. "
                 + "If the data does not contain enough information to answer, say so honestly instead of guessing. "
-                + "Keep answers concise and factual, citing dates when relevant.";
+                + "Keep answers concise and factual, citing dates, costs, stock levels, or milestone progress when relevant.";
 
         String prompt = "Project data:\n" + context + "\nQuestion:\n" + question;
 

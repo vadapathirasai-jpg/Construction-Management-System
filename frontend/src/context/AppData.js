@@ -251,8 +251,7 @@ export function AppDataProvider({ children }) {
   };
 
   const addDailyReport = async (report) => {
-    const generatedId = `RPT-${Date.now().toString().slice(-4)}`;
-    const newReport = { ...report, id: generatedId, reportedBy: currentUser?.name || "Unknown" };
+    const newReport = { ...report, reportedBy: currentUser?.name || "Unknown" };
 
     try {
       const response = await authFetch(`${API_BASE}/daily-reports`, {
@@ -458,8 +457,8 @@ export function AppDataProvider({ children }) {
 
   const permissions = {
     Admin: ["manageUsers", "createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "delete", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones"],
-    "Project Manager": ["manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones"],
-    "Site Engineer": ["viewReports", "dailyReport", "viewWorkers", "viewMaterials", "viewMilestones"],
+    "Project Manager": ["manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones"],
+    "Site Engineer": ["manageWorkers", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "viewMilestones"],
     Accountant: ["manageExpenses", "viewReports", "viewMilestones"],
   };
   const can = (permission) => {

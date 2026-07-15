@@ -34,6 +34,7 @@ public class DailyReportService {
         if (!projectAssignmentService.canUserAccessProject(email, projectId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this project.");
         }
+        report.setId(generateDailyReportId());
         return dailyReportRepository.save(report);
     }
 
@@ -42,10 +43,14 @@ public class DailyReportService {
     }
 
     public DailyReport getDailyReportById(String id) {
-        return dailyReportRepository.findById(id).orElse(null);
+        return dailyReportRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Daily report not found."));
     }
 
     public DailyReport updateDailyReport(DailyReport report) {
+        if (report.getId() == null || !dailyReportRepository.existsById(report.getId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Daily report not found.");
+        }
         String projectId = report.getProjectId();
         if (projectId == null || projectId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project ID is required.");
@@ -61,6 +66,17 @@ public class DailyReportService {
     }
 
     public void deleteDailyReport(String id) {
+        if (!dailyReportRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Daily report not found.");
+        }
         dailyReportRepository.deleteById(id);
+    }
+
+    private String generateDailyReportId() {
+        String id;
+        do {
+            id = "DR-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        } while (dailyReportRepository.existsById(id));
+        return id;
     }
 }

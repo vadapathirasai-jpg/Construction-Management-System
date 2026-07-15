@@ -70,7 +70,7 @@ public class SecurityConfig {
 
                 // Workers
                 .requestMatchers(HttpMethod.GET, "/workers/**").authenticated()
-                .requestMatchers("/workers/**").hasAnyAuthority("ADMIN", "PROJECT MANAGER")
+                .requestMatchers("/workers/**").hasAnyAuthority("ADMIN", "SITE ENGINEER")
                 
                 // Materials
                 .requestMatchers(HttpMethod.GET, "/materials/**").authenticated()

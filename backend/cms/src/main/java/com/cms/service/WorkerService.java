@@ -72,7 +72,15 @@ public class WorkerService {
     }
 
     public void deleteWorker(String id) {
-        workerRepository.deleteById(id);
+        Worker existing = workerRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found"));
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (existing.getProject() != null && !projectAssignmentService.canUserAccessProject(email, existing.getProject().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this project.");
+        }
+
+        workerRepository.delete(existing);
     }
 
     private Project validateProject(Project project) {
