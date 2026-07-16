@@ -13,6 +13,8 @@ const navigation = [
   ["Daily Reports", "/daily-reports", "progress", "dailyReport"],
   ["Reports", "/reports", "expenses", "viewReports"],
   ["Users", "/users", "profile", "manageUsers"],
+  ["Vendors", "/vendors", "building", "viewVendors"],
+  ["Payments", "/payments", "check", "viewPayments"],
 ];
 
 function Sidebar({ open, onClose }) {

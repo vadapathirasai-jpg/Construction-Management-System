@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
-import { Expenses, Materials, Projects, Workers } from "./pages/ListPages";
+import { Expenses, Materials, Projects, Workers, Vendors, Payments } from "./pages/ListPages";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
@@ -35,6 +35,8 @@ function App() {
         <Route path="/daily-reports" element={<Authorized permission="dailyReport"><DailyReports /></Authorized>} />
         <Route path="/reports" element={<Authorized permission="viewReports"><Reports /></Authorized>} />
         <Route path="/users" element={<Authorized permission="manageUsers"><Users /></Authorized>} />
+        <Route path="/vendors" element={<Authorized permission="viewVendors"><Vendors /></Authorized>} />
+        <Route path="/payments" element={<Authorized permission="viewPayments"><Payments /></Authorized>} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

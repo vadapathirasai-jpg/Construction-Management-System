@@ -110,6 +110,34 @@ public class ProjectAssistantService {
         return invokeGemini(requestBody);
     }
 
+    public String explainPriceTrend(String materialName, Integer annualTrendPercent) {
+        if (annualTrendPercent == null) {
+            return "Not enough price history yet to estimate a trend for " + materialName + ".";
+        }
+
+        String systemInstruction = "Explain in one or two plain sentences what this material price trend means for a construction project's budget planning. Be factual and concise. Do not invent numbers not provided.";
+
+        Map<String, Object> systemText = new HashMap<>();
+        systemText.put("text", systemInstruction);
+
+        Map<String, Object> systemParts = new HashMap<>();
+        systemParts.put("parts", List.of(systemText));
+
+        String prompt = "Material: " + materialName + "\nAnnual Price Trend: " + annualTrendPercent + "%";
+        
+        Map<String, Object> promptText = new HashMap<>();
+        promptText.put("text", prompt);
+
+        Map<String, Object> content = new HashMap<>();
+        content.put("parts", List.of(promptText));
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("systemInstruction", systemParts);
+        requestBody.put("contents", List.of(content));
+
+        return invokeGemini(requestBody);
+    }
+
     private String invokeGemini(Map<String, Object> requestBody) {
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,

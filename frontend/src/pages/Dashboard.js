@@ -57,6 +57,8 @@ export default function Dashboard() {
     currentUser,
     loading,
     error,
+    financialSummaries,
+    payments,
   } = useAppData();
 
   const role = currentUser.role;
@@ -256,6 +258,8 @@ export default function Dashboard() {
         <AccountantWorkspace
           projects={projects}
           expenses={expenses}
+          payments={payments}
+          financialSummaries={financialSummaries}
           navigate={navigate}
         />
       )}
@@ -823,83 +827,83 @@ function EngineerWorkspace({ projects, reports, workers, navigate }) {
   );
 }
 
-function AccountantWorkspace({ projects, expenses, navigate }) {
-  const getSpentTally = (project) => {
-    const projectExpenses = expenses.filter(
-      (e) =>
-        (e.project?.id || e.project) === project.id ||
-        (e.project?.name || e.project) === project.name
-    );
-    return projectExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-  };
+function AccountantWorkspace({ projects, expenses, payments, financialSummaries, navigate }) {
+
+  const now = new Date();
+  const nextWeek = new Date();
+  nextWeek.setDate(now.getDate() + 7);
+
+  const overduePayments = payments.filter(p => p.status === "APPROVED" && p.dueDate && new Date(p.dueDate) < now);
+  const upcomingPayments = payments.filter(p => p.status === "APPROVED" && p.dueDate && new Date(p.dueDate) >= now && new Date(p.dueDate) <= nextWeek);
+  const upcomingAmount = upcomingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
   return (
     <div className="mt-6 space-y-6">
-      {/* Project Financial Cards */}
-      <div>
-        <h2 className="text-xs font-extrabold font-industry tracking-wider text-blueprint-navy uppercase mb-3">
-          Project Budgets & Spend
-        </h2>
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {projects.map((project) => {
-            const spent = getSpentTally(project);
-            const remaining = project.budget - spent;
+      {/* Needs Attention Column */}
+      {(overduePayments.length > 0 || upcomingPayments.length > 0) && (
+        <Card className="p-5 bg-white border-l-4 border-l-safety-orange">
+          <h2 className="font-extrabold font-industry tracking-wider text-blueprint-navy uppercase text-sm mb-1">Financial Alerts</h2>
+          <div className="mt-4 space-y-3">
+            {overduePayments.length > 0 && (
+              <AttentionItem tone="rose" icon="warning" title={`${overduePayments.length} payments overdue`} detail="Process these immediately to avoid delays." onClick={() => navigate("/payments")} />
+            )}
+            {upcomingPayments.length > 0 && (
+              <AttentionItem tone="amber" icon="check" title={`${formatCurrency(upcomingAmount)} due within the next 7 days`} detail="Prepare for upcoming cash outflows." onClick={() => navigate("/payments")} />
+            )}
+          </div>
+        </Card>
+      )}
 
-            return (
-              <Card
-                key={project.id}
-                className="p-6 border-t-2 border-t-blueprint-navy bg-white hover:shadow-md transition-all duration-300"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-[#8E9AA6] font-industry">
-                      {project.client}
-                    </p>
-                    <h3 className="truncate text-base font-extrabold tracking-wider text-blueprint-navy font-industry uppercase">
-                      {project.name}
-                    </h3>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    className="h-8 min-h-0 px-3 text-[10px] rounded-none border-blueprint-navy/20"
-                    onClick={() => navigate("/expenses", { state: { openAdd: true, projectId: project.id } })}
-                  >
-                    Add Expense
-                  </Button>
-                </div>
-
-                <div className="mt-6 grid grid-cols-3 gap-2 border-t border-blueprint-navy/10 pt-4">
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-blueprint-navy/40 font-industry">
-                      Budget
-                    </p>
-                    <p className="mt-0.5 text-xs font-bold text-blueprint-navy font-mono">
-                      {formatCurrency(project.budget)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-[#d96b14] font-industry">
-                      Spent
-                    </p>
-                    <p className="mt-0.5 text-xs font-bold text-[#d96b14] font-mono">
-                      {formatCurrency(spent)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 font-industry">
-                      Remaining
-                    </p>
-                    <p className="mt-0.5 text-xs font-bold text-emerald-600 font-mono">
-                      {formatCurrency(remaining)}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      </div>
-
+      {/* Project Financial Summaries Table */}
+      <Card className="overflow-hidden bg-white">
+        <SectionHeading
+          title="Project Financial Summary"
+          description="High-level view of project budgets, expenses, and payment statuses."
+        />
+        {financialSummaries.length ? (
+          <div className="overflow-x-auto">
+            <Table columns={["Project", "Budget", "Total Expenses", "Total Paid", "Approved (Unpaid)", "Pending Approval", "Remaining Budget", "Overdue"]}>
+              {financialSummaries.map((summary) => (
+                <tr key={summary.projectId} className="hover:bg-blueprint-navy/[0.01]">
+                  <td className="px-5 py-4">
+                    <p className="font-bold text-blueprint-navy uppercase tracking-wider font-industry text-xs">{summary.projectName}</p>
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold text-blueprint-navy font-mono">
+                    {formatCurrency(summary.budget)}
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold text-slate-600 font-mono">
+                    {formatCurrency(summary.totalExpenses)}
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold text-emerald-600 font-mono">
+                    {formatCurrency(summary.totalPaid)}
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold text-amber-600 font-mono">
+                    {formatCurrency(summary.approvedUnpaid)}
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold text-slate-400 font-mono">
+                    {formatCurrency(summary.pendingApproval)}
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold font-mono">
+                    <span className={summary.remainingBudget < 0 ? "text-red-600" : "text-emerald-600"}>
+                      {formatCurrency(summary.remainingBudget)}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-xs font-bold">
+                    {summary.overdueCount > 0 ? (
+                      <span className="text-red-600">{summary.overdueCount}</span>
+                    ) : (
+                      <span className="text-slate-400">0</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          </div>
+        ) : (
+          <EmptyState message="No financial summaries available." />
+        )}
+      </Card>
+      
       {/* Expenses Ledger Table */}
       <Card className="overflow-hidden bg-white">
         <SectionHeading

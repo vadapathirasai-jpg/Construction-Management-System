@@ -22,6 +22,14 @@ const definitions = {
     filterKey: "category", filterLabel: "All categories", filterOptions: ["Materials", "Labor", "Equipment", "Permits", "Transport"],
     fields: [["date", "Date", "date"], ["description", "Description"], ["project", "Project"], ["category", "Category", "select", ["Materials", "Labor", "Equipment", "Permits", "Transport"]], ["amount", "Amount", "number"], ["approval", "Approval", "select", ["Pending", "Approved"]]],
   },
+  vendors: {
+    title: "Vendors", description: "Manage global suppliers and vendors.", filterKey: "status", filterLabel: "All statuses", filterOptions: ["Active", "Inactive"],
+    fields: [["name", "Name"], ["contactPerson", "Contact Person"], ["phoneNumber", "Phone Number"], ["email", "Email"], ["address", "Address"], ["status", "Status", "select", ["Active", "Inactive"]]],
+  },
+  payments: {
+    title: "Payments", description: "Manage project payments and view statuses.", filterKey: "status", filterLabel: "All statuses", filterOptions: ["PENDING_APPROVAL", "APPROVED", "PAID", "REJECTED"],
+    fields: [["project", "Project"], ["vendor", "Vendor"], ["description", "Description"], ["amount", "Amount", "number"], ["dueDate", "Due Date", "date"]],
+  },
 };
 
 function useFilteredRows(rows, filterKey) {
@@ -133,8 +141,15 @@ function RecordModal({ type, mode, record, onClose, onSave, saving = false, save
   </Modal>;
 }
 
-function Actions({ onView, onEdit, onDelete, onApprove, canManage, canDelete }) {
-  return <div className="flex gap-1">{onApprove && <Button variant="secondary" className="px-2 py-1 text-xs" onClick={onApprove}>Approve</Button>}<Button variant="ghost" className="px-2 py-1 text-xs" onClick={onView}>View</Button>{canManage && <Button variant="ghost" className="px-2 py-1 text-xs" onClick={onEdit}>Edit</Button>}{canDelete && <Button variant="danger" className="px-2 py-1 text-xs" onClick={onDelete}>Delete</Button>}</div>;
+function Actions({ onView, onEdit, onDelete, onApprove, onReject, onProcess, canManage, canDelete }) {
+  return <div className="flex gap-1">
+    {onApprove && <Button variant="secondary" className="px-2 py-1 text-xs" onClick={onApprove}>Approve</Button>}
+    {onReject && <Button variant="secondary" className="px-2 py-1 text-xs text-red-600" onClick={onReject}>Reject</Button>}
+    {onProcess && <Button variant="secondary" className="px-2 py-1 text-xs bg-emerald-50 text-emerald-700" onClick={onProcess}>Process</Button>}
+    <Button variant="ghost" className="px-2 py-1 text-xs" onClick={onView}>View</Button>
+    {canManage && <Button variant="ghost" className="px-2 py-1 text-xs" onClick={onEdit}>Edit</Button>}
+    {canDelete && <Button variant="danger" className="px-2 py-1 text-xs" onClick={onDelete}>Delete</Button>}
+  </div>;
 }
 
 function PageShell({ type, columns, renderRow, extraFilters, summary }) {
@@ -179,11 +194,45 @@ function PageShell({ type, columns, renderRow, extraFilters, summary }) {
     setModal(null);
   };
   const actions = (record) => {
-    const canDelete = type === "projects"
-      ? data.currentUser.role === "Admin" && record.status === "Completed"
-      : type === "expenses"
-        ? data.currentUser.role === "Admin"
-        : data.can("delete") || data.currentUser.role === "Project Manager";
+    let canDelete = false;
+    let onApprove = null;
+    let onReject = null;
+    let onProcess = null;
+
+    if (type === "projects") canDelete = data.currentUser.role === "Admin" && record.status === "Completed";
+    else if (type === "expenses") {
+      canDelete = data.currentUser.role === "Admin";
+      if (record.approval === "Pending" && ["Admin", "Project Manager"].includes(data.currentUser.role)) {
+        onApprove = () => data.update("expenses", { ...record, approval: "Approved" });
+      }
+    } else if (type === "payments") {
+      canDelete = data.currentUser.role === "Admin";
+      if (record.status === "PENDING_APPROVAL" && ["Admin", "Project Manager"].includes(data.currentUser.role)) {
+        onApprove = async () => {
+          await data.authFetch(`${data.API_BASE}/payments/${record.id}/approve`, { method: "PUT" });
+          data.refresh();
+        };
+        onReject = async () => {
+          await data.authFetch(`${data.API_BASE}/payments/${record.id}/reject`, { method: "PUT" });
+          data.refresh();
+        };
+      }
+      if (record.status === "APPROVED" && ["Admin", "Accountant"].includes(data.currentUser.role)) {
+        onProcess = () => {
+          const method = window.prompt("Enter payment method (e.g. BANK_TRANSFER, CHEQUE):", "BANK_TRANSFER");
+          if (!method) return;
+          const ref = window.prompt("Enter transaction reference (optional):", "");
+          data.authFetch(`${data.API_BASE}/payments/${record.id}/process`, {
+            method: "PUT",
+            body: JSON.stringify({ paymentMethod: method, transactionReference: ref, paidDate: new Date().toISOString().slice(0, 10) })
+          }).then(() => data.refresh());
+        };
+      }
+    } else if (type === "vendors") {
+      canDelete = ["Admin", "Accountant"].includes(data.currentUser.role);
+    } else {
+      canDelete = data.can("delete") || data.currentUser.role === "Project Manager";
+    }
 
     return {
       onView: () => type === "projects" ? navigate(`/projects/${record.id}`) : openModal({ mode: "view", record }),
@@ -196,8 +245,10 @@ function PageShell({ type, columns, renderRow, extraFilters, summary }) {
           }
         }
       },
-      onApprove: type === "expenses" && record.approval === "Pending" && ["Admin", "Project Manager"].includes(data.currentUser.role) ? () => data.update("expenses", { ...record, approval: "Approved" }) : null,
-      canManage,
+      onApprove,
+      onReject,
+      onProcess,
+      canManage: ["vendors", "payments"].includes(type) ? ["Admin", "Accountant"].includes(data.currentUser.role) || (type === "payments" && data.currentUser.role === "Site Engineer") : canManage,
       canDelete
     };
   };
@@ -225,8 +276,78 @@ export function Workers() {
   return <PageShell type="workers" columns={[{ label: "Name", key: "name" }, { label: "Role", key: "role" }, "Phone", { label: "Daily Wage", key: "wage" }, { label: "Assigned Project", key: "project" }, { label: "Status", key: "status" }, "Actions"]} renderRow={(w, actions) => <tr key={w.id}><td className="px-5 py-4"><p className="font-medium">{w.name}</p><p className="mt-1 text-xs text-slate-400">{w.id}</p></td><td className="px-5 py-4 text-slate-600">{w.role}</td><td className="whitespace-nowrap px-5 py-4 text-slate-600">{w.phone}</td><td className="px-5 py-4 font-medium">{formatCurrency(w.wage)}</td><td className="px-5 py-4 text-slate-600">{w.project?.name || w.project || "Unassigned"}</td><td className="px-5 py-4"><StatusBadge status={w.status} /></td><td className="px-5 py-4">{actions}</td></tr>} />;
 }
 
+function MaterialRow({ m, actions }) {
+  const data = useAppData();
+  const [trend, setTrend] = useState(null);
+  const [explanation, setExplanation] = useState(null);
+  const [loadingExplanation, setLoadingExplanation] = useState(false);
+
+  useEffect(() => {
+    data.authFetch(`http://localhost:8081/materials/${m.id}/price-trend`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.annualTrendPercent !== undefined && json.annualTrendPercent !== null) {
+          setTrend(json.annualTrendPercent);
+        }
+      })
+      .catch(err => console.error("Error fetching trend:", err));
+  }, [m.id, data]);
+
+  const loadExplanation = () => {
+    setLoadingExplanation(true);
+    data.authFetch(`http://localhost:8081/materials/${m.id}/price-trend-explanation`)
+      .then(res => res.json())
+      .then(json => {
+        setExplanation(json.explanation);
+        setLoadingExplanation(false);
+      })
+      .catch(err => {
+        console.error("Error fetching explanation:", err);
+        setLoadingExplanation(false);
+      });
+  };
+
+  return (
+    <>
+      <tr key={m.id}>
+        <td className="px-5 py-4"><p className="font-medium">{m.name}</p><p className="mt-1 text-xs text-slate-400">{m.id}</p></td>
+        <td className="px-5 py-4 text-slate-600">{m.category}</td>
+        <td className="px-5 py-4 font-medium">{m.quantity}</td>
+        <td className="px-5 py-4 text-slate-600">{m.unit}</td>
+        <td className="px-5 py-4 text-slate-600">{m.supplier}</td>
+        <td className="px-5 py-4 font-medium">
+          {formatCurrency(m.cost)}
+          {trend !== null && (
+            <div className="mt-1 text-xs text-slate-500 flex items-center gap-1">
+              {trend > 0 ? `↑ ${trend}%/year` : trend < 0 ? `↓ ${Math.abs(trend)}%/year` : `0%/year`}
+              <button onClick={loadExplanation} className="text-blue-500 underline ml-1 hover:text-blue-700">Explain</button>
+            </div>
+          )}
+        </td>
+        <td className="px-5 py-4"><StatusBadge status={m.status} /></td>
+        <td className="px-5 py-4">{actions}</td>
+      </tr>
+      {explanation && (
+        <tr>
+          <td colSpan="8" className="px-5 py-3 bg-slate-50 text-sm text-slate-700 border-b border-slate-200">
+            <strong>AI Trend Analysis (based on this project's own recorded price history):</strong> {explanation}
+            <button onClick={() => setExplanation(null)} className="ml-2 text-xs text-slate-400 underline">Dismiss</button>
+          </td>
+        </tr>
+      )}
+      {loadingExplanation && (
+        <tr>
+          <td colSpan="8" className="px-5 py-3 bg-slate-50 text-sm text-slate-500 border-b border-slate-200">
+            Loading AI explanation...
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 export function Materials() {
-  return <PageShell type="materials" columns={[{ label: "Material Name", key: "name" }, { label: "Category", key: "category" }, { label: "Quantity", key: "quantity" }, "Unit", { label: "Supplier", key: "supplier" }, { label: "Cost", key: "cost" }, { label: "Stock Status", key: "status" }, "Actions"]} renderRow={(m, actions) => <tr key={m.id}><td className="px-5 py-4"><p className="font-medium">{m.name}</p><p className="mt-1 text-xs text-slate-400">{m.id}</p></td><td className="px-5 py-4 text-slate-600">{m.category}</td><td className="px-5 py-4 font-medium">{m.quantity}</td><td className="px-5 py-4 text-slate-600">{m.unit}</td><td className="px-5 py-4 text-slate-600">{m.supplier}</td><td className="px-5 py-4 font-medium">{formatCurrency(m.cost)}</td><td className="px-5 py-4"><StatusBadge status={m.status} /></td><td className="px-5 py-4">{actions}</td></tr>} />;
+  return <PageShell type="materials" columns={[{ label: "Material Name", key: "name" }, { label: "Category", key: "category" }, { label: "Quantity", key: "quantity" }, "Unit", { label: "Supplier", key: "supplier" }, { label: "Cost", key: "cost" }, { label: "Stock Status", key: "status" }, "Actions"]} renderRow={(m, actions) => <MaterialRow key={m.id} m={m} actions={actions} />} />;
 }
 
 export function Expenses() {
@@ -236,4 +357,37 @@ export function Expenses() {
   const total = visibleExpenses.reduce((sum, item) => sum + item.amount, 0);
   const summary = <div className="mb-6 grid gap-4 sm:grid-cols-3"><Card className="p-5"><p className="text-sm text-slate-500">Total Recorded</p><p className="mt-2 text-2xl font-bold">{formatCurrency(total)}</p></Card><Card className="p-5"><p className="text-sm text-slate-500">This Month</p><p className="mt-2 text-2xl font-bold">{formatCurrency(total)}</p></Card><Card className="p-5"><p className="text-sm text-slate-500">Largest Expense</p><p className="mt-2 text-2xl font-bold">{formatCurrency(visibleExpenses.length ? Math.max(...visibleExpenses.map((item) => item.amount)) : 0)}</p></Card></div>;
   return <PageShell type="expenses" summary={summary} columns={["Expense ID", { label: "Date", key: "date" }, { label: "Description", key: "description" }, { label: "Project", key: "project" }, { label: "Category", key: "category" }, { label: "Amount", key: "amount" }, { label: "Approval", key: "approval" }, "Actions"]} extraFilters={(list) => <SelectFilter value={list.secondaryFilter} onChange={(event) => list.setSecondaryFilter(event.target.value)} options={projects.map((project) => project.name)} label="All projects" />} renderRow={(e, actions) => <tr key={e.id}><td className="px-5 py-4 text-xs text-slate-500">{e.id}</td><td className="whitespace-nowrap px-5 py-4">{formatDate(e.date)}</td><td className="px-5 py-4 font-medium">{e.description}</td><td className="px-5 py-4 text-slate-600">{e.project?.name || e.project || "Unassigned"}</td><td className="px-5 py-4"><Badge tone="blue">{e.category}</Badge></td><td className="px-5 py-4 font-semibold">{formatCurrency(e.amount)}</td><td className="px-5 py-4"><StatusBadge status={e.approval} /></td><td className="px-5 py-4">{actions}</td></tr>} />;
+}
+
+export function Vendors() {
+  return <PageShell type="vendors" columns={[{ label: "Name", key: "name" }, { label: "Contact", key: "contactPerson" }, "Phone", "Email", { label: "Status", key: "status" }, "Actions"]} renderRow={(v, actions) => <tr key={v.id}><td className="px-5 py-4"><p className="font-medium">{v.name}</p><p className="mt-1 text-xs text-slate-400">{v.id}</p></td><td className="px-5 py-4 text-slate-600">{v.contactPerson}</td><td className="px-5 py-4 text-slate-600">{v.phoneNumber}</td><td className="px-5 py-4 text-slate-600">{v.email}</td><td className="px-5 py-4"><StatusBadge status={v.status} /></td><td className="px-5 py-4">{actions}</td></tr>} />;
+}
+
+export function Payments() {
+  const { payments, accessibleProjects: projects } = useAppData();
+  const summary = (
+    <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <Card className="p-5"><p className="text-sm text-slate-500">Total Payments</p><p className="mt-2 text-2xl font-bold">{payments.length}</p></Card>
+      <Card className="p-5"><p className="text-sm text-slate-500">Total Paid Amount</p><p className="mt-2 text-2xl font-bold">{formatCurrency(payments.filter(p => p.status === "PAID").reduce((sum, p) => sum + (p.amount || 0), 0))}</p></Card>
+      <Card className="p-5"><p className="text-sm text-slate-500">Pending Approvals</p><p className="mt-2 text-2xl font-bold">{payments.filter(p => p.status === "PENDING_APPROVAL").length}</p></Card>
+    </div>
+  );
+  return <PageShell type="payments" summary={summary} columns={["Payment ID", { label: "Project", key: "project" }, { label: "Vendor", key: "vendor" }, { label: "Description", key: "description" }, { label: "Amount", key: "amount" }, { label: "Due Date", key: "dueDate" }, { label: "Status", key: "status" }, "Actions"]} extraFilters={(list) => <SelectFilter value={list.secondaryFilter} onChange={(event) => list.setSecondaryFilter(event.target.value)} options={projects.map((project) => project.name)} label="All projects" />} renderRow={(p, actions) => {
+    let effectiveStatus = p.status;
+    if (p.status === "APPROVED" && p.dueDate && new Date(p.dueDate) < new Date()) {
+      effectiveStatus = "OVERDUE";
+    }
+    return (
+      <tr key={p.id}>
+        <td className="px-5 py-4 text-xs text-slate-500">{p.id}</td>
+        <td className="px-5 py-4 text-slate-600">{p.project?.name || p.project}</td>
+        <td className="px-5 py-4 text-slate-600">{p.vendor?.name || p.vendor}</td>
+        <td className="px-5 py-4 font-medium">{p.description}</td>
+        <td className="px-5 py-4 font-semibold">{formatCurrency(p.amount)}</td>
+        <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatDate(p.dueDate)}</td>
+        <td className="px-5 py-4"><StatusBadge status={effectiveStatus} /></td>
+        <td className="px-5 py-4">{actions}</td>
+      </tr>
+    );
+  }} />;
 }

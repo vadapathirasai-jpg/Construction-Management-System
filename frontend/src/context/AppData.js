@@ -20,6 +20,9 @@ export function AppDataProvider({ children }) {
   const [expenses, setExpenses] = useState([]);
   const [dailyReports, setDailyReports] = useState([]);
   const [users, setUsers] = useState([]);
+  const [vendors, setVendors] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [financialSummaries, setFinancialSummaries] = useState([]);
   const [assignedProjects, setAssignedProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -92,6 +95,9 @@ export function AppDataProvider({ children }) {
       ["materials", "materials", setMaterials],
       ["expenses", "expenses", setExpenses],
       ["daily reports", "daily-reports", setDailyReports],
+      ["vendors", "vendors", setVendors],
+      ["payments", "payments", setPayments],
+      ["financial summaries", "financial-summary", setFinancialSummaries],
     ];
 
     try {
@@ -159,6 +165,9 @@ export function AppDataProvider({ children }) {
       setExpenses([]);
       setDailyReports([]);
       setUsers([]);
+      setVendors([]);
+      setPayments([]);
+      setFinancialSummaries([]);
       setError("");
       setLoading(false);
     }
@@ -456,10 +465,10 @@ export function AppDataProvider({ children }) {
   };
 
   const permissions = {
-    Admin: ["manageUsers", "createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "delete", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones"],
-    "Project Manager": ["manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones"],
-    "Site Engineer": ["manageWorkers", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "viewMilestones"],
-    Accountant: ["manageExpenses", "viewReports", "viewMilestones"],
+    Admin: ["manageUsers", "createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "delete", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones", "manageVendors", "managePayments", "viewPayments", "viewVendors"],
+    "Project Manager": ["manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones", "approvePayments", "viewPayments"],
+    "Site Engineer": ["manageWorkers", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "viewMilestones", "createPayment", "viewPayments"],
+    Accountant: ["manageExpenses", "viewReports", "viewMilestones", "manageVendors", "processPayments", "viewPayments", "viewVendors"],
   };
   const can = (permission) => {
     if (!currentUser) return false;
@@ -482,9 +491,10 @@ export function AppDataProvider({ children }) {
   const filteredWorkers = currentUser?.role === "Admin" ? workers : workers.filter((w) => accessibleProjectNames.has(w.project?.name || w.project));
   const filteredMaterials = currentUser?.role === "Admin" ? materials : materials.filter((m) => accessibleProjectNames.has(m.project?.name || m.project));
   const filteredExpenses = currentUser?.role === "Admin" ? expenses : expenses.filter((e) => accessibleProjectNames.has(e.project?.name || e.project));
+  const filteredPayments = currentUser?.role === "Admin" ? payments : payments.filter((p) => accessibleProjectNames.has(p.project?.name || p.project));
   const filteredDailyReports = currentUser?.role === "Admin" ? dailyReports : dailyReports.filter((r) => accessibleProjectIds.has(r.projectId));
 
-return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, currentUser, token, loading, error, refresh: fetchData, login, register, resendVerification, verifyUser, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE, getMilestones, addMilestone, updateMilestone, removeMilestone }}>{children}</AppDataContext.Provider>;}
+return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, vendors, payments: filteredPayments, financialSummaries, currentUser, token, loading, error, refresh: fetchData, login, register, resendVerification, verifyUser, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE, getMilestones, addMilestone, updateMilestone, removeMilestone }}>{children}</AppDataContext.Provider>;}
 
 export const useAppData = () => useContext(AppDataContext);
 
