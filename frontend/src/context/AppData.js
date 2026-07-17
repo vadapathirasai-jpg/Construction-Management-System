@@ -1,7 +1,14 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 
 const AppDataContext = createContext(null);
 const API_BASE = "http://localhost:8081";
+
+const permissions = {
+  Admin: ["manageUsers", "createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "delete", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones", "manageVendors", "managePayments", "viewPayments", "viewVendors"],
+  "Project Manager": ["manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones", "approvePayments", "viewPayments"],
+  "Site Engineer": ["manageWorkers", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "viewMilestones", "createPayment", "viewPayments"],
+  Accountant: ["manageExpenses", "viewReports", "viewMilestones", "manageVendors", "processPayments", "viewPayments", "viewVendors"],
+};
 
 const normalizeRole = (role) => {
   if (!role) return "";
@@ -41,12 +48,12 @@ export function AppDataProvider({ children }) {
     }
   });
 
-  const setCurrentUser = (user) => {
+  const setCurrentUser = useCallback((user) => {
     if (user && user.role) {
       user.role = normalizeRole(user.role);
     }
     setCurrentUserRaw(user);
-  };
+  }, []);
 
   const logout = useCallback(() => {
     setToken("");
@@ -55,7 +62,7 @@ export function AppDataProvider({ children }) {
     setError("");
     localStorage.removeItem("token");
     localStorage.removeItem("currentUser");
-  }, []);
+  }, [setCurrentUser]);
 
   const authFetch = useCallback(async (url, options = {}) => {
     const headers = {
@@ -173,7 +180,7 @@ export function AppDataProvider({ children }) {
     }
   }, [token, fetchData]);
 
-  const add = async (type, record) => {
+  const add = useCallback(async (type, record) => {
     const defaults = type === "projects" ? { manager: "Unassigned", progress: 0, stage: "Planning" } : {};
     const generatedId = `${type.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
     const newRecord = normalizeRecord(type, { ...defaults, ...record, id: generatedId });
@@ -200,9 +207,9 @@ export function AppDataProvider({ children }) {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, [authFetch, fetchData]);
 
-  const update = async (type, record) => {
+  const update = useCallback(async (type, record) => {
     const url = `${API_BASE}/${type}/${record.id}`;
     const nextRecord = normalizeRecord(type, record);
     
@@ -233,9 +240,9 @@ export function AppDataProvider({ children }) {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, [authFetch, currentUser, fetchData, setCurrentUser]);
 
-  const remove = async (type, id) => {
+  const remove = useCallback(async (type, id) => {
     try {
       const response = await authFetch(`${API_BASE}/${type}/${id}`, {
         method: "DELETE",
@@ -257,9 +264,9 @@ export function AppDataProvider({ children }) {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, [authFetch, fetchData]);
 
-  const addDailyReport = async (report) => {
+  const addDailyReport = useCallback(async (report) => {
     const newReport = { ...report, reportedBy: currentUser?.name || "Unknown" };
 
     try {
@@ -281,7 +288,7 @@ export function AppDataProvider({ children }) {
     } catch (err) {
       console.error("Error adding daily report:", err);
     }
-  };
+  }, [currentUser, authFetch, projects, update, fetchData]);
 
   const getMilestones = useCallback(async (projectId) => {
     try {
@@ -297,7 +304,7 @@ export function AppDataProvider({ children }) {
     }
   }, [authFetch]);
 
-  const addMilestone = async (projectId, milestone) => {
+  const addMilestone = useCallback(async (projectId, milestone) => {
     try {
       const response = await authFetch(`${API_BASE}/projects/${projectId}/milestones`, {
         method: "POST",
@@ -320,9 +327,9 @@ export function AppDataProvider({ children }) {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, [authFetch, fetchData]);
 
-  const updateMilestone = async (milestone) => {
+  const updateMilestone = useCallback(async (milestone) => {
     try {
       const response = await authFetch(`${API_BASE}/milestones/${milestone.id}`, {
         method: "PUT",
@@ -345,9 +352,9 @@ export function AppDataProvider({ children }) {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, [authFetch, fetchData]);
 
-  const removeMilestone = async (milestoneId) => {
+  const removeMilestone = useCallback(async (milestoneId) => {
     try {
       const response = await authFetch(`${API_BASE}/milestones/${milestoneId}`, {
         method: "DELETE",
@@ -369,9 +376,9 @@ export function AppDataProvider({ children }) {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, [authFetch, fetchData]);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     try {
       const response = await fetch(`${API_BASE}/users/login`, {
         method: "POST",
@@ -393,9 +400,9 @@ export function AppDataProvider({ children }) {
       console.error("Login error:", err);
       return { success: false, error: "Authentication server is unreachable." };
     }
-  };
+  }, [setCurrentUser]);
 
-  const register = async (user) => {
+  const register = useCallback(async (user) => {
     try {
       const response = await fetch(`${API_BASE}/users`, {
         method: "POST",
@@ -411,9 +418,9 @@ export function AppDataProvider({ children }) {
       console.error("Registration error:", err);
       return { success: false, error: "Registration server is unreachable." };
     }
-  };
+  }, []);
 
-  const resendVerification = async (email) => {
+  const resendVerification = useCallback(async (email) => {
     try {
       const response = await fetch(`${API_BASE}/users/resend-verification`, {
         method: "POST",
@@ -431,9 +438,9 @@ export function AppDataProvider({ children }) {
       console.error("Resend verification error:", err);
       return { success: false, error: "Authentication server is unreachable." };
     }
-  };
+  }, []);
 
-  const verifyUser = async (email, otp) => {
+  const verifyUser = useCallback(async (email, otp) => {
     try {
       const response = await fetch(`${API_BASE}/users/verify`, {
         method: "POST",
@@ -462,28 +469,22 @@ export function AppDataProvider({ children }) {
       console.error("Verification error:", err);
       return { success: false, error: "Verification server is unreachable." };
     }
-  };
+  }, []);
 
-  const permissions = {
-    Admin: ["manageUsers", "createProject", "manageWorkers", "manageMaterials", "manageExpenses", "viewReports", "dailyReport", "delete", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones", "manageVendors", "managePayments", "viewPayments", "viewVendors"],
-    "Project Manager": ["manageMaterials", "manageExpenses", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "manageMilestones", "viewMilestones", "approvePayments", "viewPayments"],
-    "Site Engineer": ["manageWorkers", "viewReports", "dailyReport", "viewWorkers", "viewMaterials", "viewMilestones", "createPayment", "viewPayments"],
-    Accountant: ["manageExpenses", "viewReports", "viewMilestones", "manageVendors", "processPayments", "viewPayments", "viewVendors"],
-  };
-  const can = (permission) => {
+  const can = useCallback((permission) => {
     if (!currentUser) return false;
     return permissions[currentUser.role]?.includes(permission);
-  };
+  }, [currentUser]);
 
-  const accessibleProjects = !currentUser ? []
+  const accessibleProjects = useMemo(() => !currentUser ? []
     : currentUser.role === "Admin"
       ? projects
-      : assignedProjects;
+      : assignedProjects, [currentUser, projects, assignedProjects]);
 
-  const projectScope = !currentUser ? { label: "Projects", description: "No project scope available.", isScoped: false }
+  const projectScope = useMemo(() => !currentUser ? { label: "Projects", description: "No project scope available.", isScoped: false }
     : currentUser.role === "Admin"
       ? { label: "All Projects", description: `Showing all ${projects.length} projects.`, isScoped: false }
-      : { label: "Assigned Projects", description: `Showing ${accessibleProjects.length} assigned of ${projects.length} total projects.`, isScoped: true };
+      : { label: "Assigned Projects", description: `Showing ${accessibleProjects.length} assigned of ${projects.length} total projects.`, isScoped: true }, [currentUser, projects.length, accessibleProjects.length]);
 
   const accessibleProjectNames = new Set(accessibleProjects.map((p) => p.name));
   const accessibleProjectIds = new Set(accessibleProjects.map((p) => p.id));
@@ -494,7 +495,11 @@ export function AppDataProvider({ children }) {
   const filteredPayments = currentUser?.role === "Admin" ? payments : payments.filter((p) => accessibleProjectNames.has(p.project?.name || p.project));
   const filteredDailyReports = currentUser?.role === "Admin" ? dailyReports : dailyReports.filter((r) => accessibleProjectIds.has(r.projectId));
 
-return <AppDataContext.Provider value={{ projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, vendors, payments: filteredPayments, financialSummaries, currentUser, token, loading, error, refresh: fetchData, login, register, resendVerification, verifyUser, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE, getMilestones, addMilestone, updateMilestone, removeMilestone }}>{children}</AppDataContext.Provider>;}
+  const contextValue = useMemo(() => ({
+    projects, accessibleProjects, projectScope, workers: filteredWorkers, materials: filteredMaterials, expenses: filteredExpenses, dailyReports: filteredDailyReports, users, vendors, payments: filteredPayments, financialSummaries, currentUser, token, loading, error, refresh: fetchData, login, register, resendVerification, verifyUser, logout, can, addDailyReport, add, update, remove, authFetch, API_BASE, getMilestones, addMilestone, updateMilestone, removeMilestone
+  }), [projects, accessibleProjects, projectScope, filteredWorkers, filteredMaterials, filteredExpenses, filteredDailyReports, users, vendors, filteredPayments, financialSummaries, currentUser, token, loading, error, fetchData, login, register, resendVerification, verifyUser, logout, can, addDailyReport, add, update, remove, authFetch, getMilestones, addMilestone, updateMilestone, removeMilestone]);
+
+return <AppDataContext.Provider value={contextValue}>{children}</AppDataContext.Provider>;}
 
 export const useAppData = () => useContext(AppDataContext);
 

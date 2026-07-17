@@ -3,7 +3,7 @@ import { Button, Modal, LoadingState } from "./UI";
 import { useAppData } from "../context/AppData";
 
 export default function ProjectAssignmentPanel({ project, onClose }) {
-  const { authFetch, users } = useAppData();
+  const { authFetch, users, API_BASE } = useAppData();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -14,7 +14,7 @@ export default function ProjectAssignmentPanel({ project, onClose }) {
     setLoading(true);
     setError("");
     try {
-      const response = await authFetch(`http://localhost:8081/projects/${project.id}/assignments`);
+      const response = await authFetch(`${API_BASE}/projects/${project.id}/assignments`);
       if (response.ok) {
         const list = await response.json();
         setAssignments(list);
@@ -26,7 +26,7 @@ export default function ProjectAssignmentPanel({ project, onClose }) {
     } finally {
       setLoading(false);
     }
-  }, [project.id, authFetch]);
+  }, [project.id, authFetch, API_BASE]);
 
   useEffect(() => {
     fetchAssignments();
@@ -37,7 +37,7 @@ export default function ProjectAssignmentPanel({ project, onClose }) {
     setActionLoading(true);
     setError("");
     try {
-      const response = await authFetch(`http://localhost:8081/projects/${project.id}/assignments`, {
+      const response = await authFetch(`${API_BASE}/projects/${project.id}/assignments`, {
         method: "POST",
         body: JSON.stringify({ userId: selectedUserId }),
       });
@@ -59,7 +59,7 @@ export default function ProjectAssignmentPanel({ project, onClose }) {
     setActionLoading(true);
     setError("");
     try {
-      const response = await authFetch(`http://localhost:8081/projects/${project.id}/assignments/${userId}`, {
+      const response = await authFetch(`${API_BASE}/projects/${project.id}/assignments/${userId}`, {
         method: "DELETE",
       });
       if (response.ok) {

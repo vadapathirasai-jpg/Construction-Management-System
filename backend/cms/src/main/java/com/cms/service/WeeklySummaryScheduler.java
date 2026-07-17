@@ -44,7 +44,7 @@ public class WeeklySummaryScheduler {
 
                 log.info("Generating weekly summary for project: {}", project.getName());
                 String question = "Please provide a concise weekly progress summary for this project, highlighting key completed tasks, material usage, and any potential risks or updates from the daily reports.";
-                String summaryText = projectAssistantService.askAboutProject(project.getId(), question);
+                String summaryText = projectAssistantService.askAboutProjectInternal(project.getId(), question);
 
                 String htmlContent = "<h3>Weekly AI Progress Summary</h3>"
                         + "<h4>Project: " + project.getName() + " (ID: " + project.getId() + ")</h4>"

@@ -52,7 +52,7 @@ function useFilteredRows(rows, filterKey) {
 }
 
 function RecordModal({ type, mode, record, onClose, onSave, saving = false, saveError = "" }) {
-  const data = useAppData();
+  const { authFetch, API_BASE, ...data } = useAppData();
   const config = definitions[type];
   const [values, setValues] = useState(record || {});
   const [errors, setErrors] = useState({});
@@ -63,7 +63,7 @@ function RecordModal({ type, mode, record, onClose, onSave, saving = false, save
     if (type === "projects") {
       const fetchManagers = async () => {
         try {
-          const response = await data.authFetch("http://localhost:8081/projects/managers");
+          const response = await authFetch(`${API_BASE}/projects/managers`);
           if (response.ok) {
             const list = await response.json();
             setAvailableManagers(list);
@@ -74,7 +74,7 @@ function RecordModal({ type, mode, record, onClose, onSave, saving = false, save
       };
       fetchManagers();
     }
-  }, [type, data]);
+  }, [type, authFetch, API_BASE]);
 
   const submit = async () => {
     const nextErrors = {};
@@ -277,13 +277,13 @@ export function Workers() {
 }
 
 function MaterialRow({ m, actions }) {
-  const data = useAppData();
+  const { authFetch, API_BASE } = useAppData();
   const [trend, setTrend] = useState(null);
   const [explanation, setExplanation] = useState(null);
   const [loadingExplanation, setLoadingExplanation] = useState(false);
 
   useEffect(() => {
-    data.authFetch(`http://localhost:8081/materials/${m.id}/price-trend`)
+    authFetch(`${API_BASE}/materials/${m.id}/price-trend`)
       .then(res => res.json())
       .then(json => {
         if (json.annualTrendPercent !== undefined && json.annualTrendPercent !== null) {
@@ -291,11 +291,11 @@ function MaterialRow({ m, actions }) {
         }
       })
       .catch(err => console.error("Error fetching trend:", err));
-  }, [m.id, data]);
+  }, [m.id, authFetch, API_BASE]);
 
   const loadExplanation = () => {
     setLoadingExplanation(true);
-    data.authFetch(`http://localhost:8081/materials/${m.id}/price-trend-explanation`)
+    authFetch(`${API_BASE}/materials/${m.id}/price-trend-explanation`)
       .then(res => res.json())
       .then(json => {
         setExplanation(json.explanation);

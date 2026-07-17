@@ -14,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
@@ -54,6 +55,9 @@ public class ProjectAssistantService {
     private MilestoneRepository milestoneRepository;
 
     @Autowired
+    private ProjectAssignmentService projectAssignmentService;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     @Value("${gemini.api.key}")
@@ -65,6 +69,14 @@ public class ProjectAssistantService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public String askAboutProject(String projectId, String question) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!projectAssignmentService.canUserAccessProject(email, projectId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this project.");
+        }
+        return askAboutProjectInternal(projectId, question);
+    }
+
+    public String askAboutProjectInternal(String projectId, String question) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found."));
 

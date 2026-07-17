@@ -9,7 +9,7 @@ const initialRoleCounts = Object.fromEntries(workerRoles.map((role) => [role, 0]
 export default function DailyReports() {
   const { state } = useLocation();
   const navigate = useNavigate();
-  const { accessibleProjects: projects, addDailyReport, loading, error: loadError, authFetch } = useAppData();
+  const { accessibleProjects: projects, addDailyReport, loading, error: loadError, authFetch, API_BASE } = useAppData();
   const [saved, setSaved] = useState(false);
   const [formError, setFormError] = useState("");
   const [polishLoading, setPolishLoading] = useState(false);
@@ -35,7 +35,7 @@ export default function DailyReports() {
     setPolishLoading(true);
     setPolishHint("");
     try {
-      const response = await authFetch("http://localhost:8081/daily-reports/polish-remarks", {
+      const response = await authFetch(`${API_BASE}/daily-reports/polish-remarks`, {
         method: "POST",
         body: JSON.stringify({ notes: notesText }),
       });
